@@ -4,6 +4,7 @@ import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
 import scala.util.control.NonFatal
 import java.util.concurrent.Executors
+import scala.reflect.ClassTag
 
 object AutoUpdatingVar {
   sealed trait UpdateAttemptExhaustionBehavior {
@@ -52,29 +53,37 @@ object AutoUpdatingVar {
   * A successful update schedules the next update, with an interval that can vary based on the
   * just-updated var.
   *
-  * @param varName
-  *   A name for this variable, used in logging
   * @param updateVar
   *   A thunk run to initialize and update the var
   * @param updateInterval
   *   Configuration for the update interval
   * @param updateAttemptStrategy
   *   Configuration for attempting updates
+  * @param varNameOverride
+  *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
+  *   used.
   * @param handleInitializationError
-  *   A PartialFunction used to recover from failures in the var initialization
+  *   A PartialFunction used to recover from exceptions in the var initialization. If unspecified,
+  *   the exception will be thrown in the thread which called `new AutoUpdatingVar`.
   */
 class AutoUpdatingVar[T](
-    varName: String,
     updateVar: => T,
     updateInterval: AutoUpdatingVar.UpdateInterval[T],
     updateAttemptStrategy: AutoUpdatingVar.UpdateAttemptStrategy,
+    varNameOverride: Option[String] = None,
     handleInitializationError: PartialFunction[Throwable, T] = PartialFunction.empty
-) extends AutoCloseable {
+)(implicit ct: ClassTag[T])
+    extends AutoCloseable {
   import AutoUpdatingVar._
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val executor = Executors.newScheduledThreadPool(1)
+
+  private val varName = varNameOverride match {
+    case Some(n) => n
+    case None    => ct.runtimeClass.getSimpleName
+  }
 
   /** @return
     *   The latest value of the variable. Calling this method is thread-safe.
