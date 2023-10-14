@@ -13,6 +13,7 @@ import scala.concurrent.Promise
 import scala.util.Try
 import scala.util.Success
 import scala.util.Failure
+import scala.concurrent.Await
 
 /** An AutoUpdatingVar based on the JDK's ScheduledExecutorService.
   *
@@ -26,6 +27,9 @@ import scala.util.Failure
   *   Configuration for the update interval
   * @param updateAttemptStrategy
   *   Configuration for attempting updates
+  * @param blockUntilReadyTimeout
+  *   If specified, class instantiation will block the calling thread until it succeeds, fails, or
+  *   the timeout is reached.
   * @param varNameOverride
   *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
   *   used.
@@ -39,6 +43,7 @@ class JdkAutoUpdatingVar[T](
     updateVar: => T,
     updateInterval: UpdateInterval[T],
     updateAttemptStrategy: UpdateAttemptStrategy,
+    blockUntilReadyTimeout: Option[Duration],
     varNameOverride: Option[String] = None,
     handleInitializationError: PartialFunction[Throwable, T] = PartialFunction.empty,
     executorOverride: Option[ScheduledExecutorService] = None
@@ -101,6 +106,10 @@ class JdkAutoUpdatingVar[T](
     0,
     TimeUnit.NANOSECONDS
   )
+
+  blockUntilReadyTimeout.foreach { timeout =>
+    Await.result(ready, timeout)
+  }
 
   private def scheduleUpdate(nextUpdate: FiniteDuration): Unit = {
     log.info(s"$this: Scheduling update of var in: $nextUpdate")
