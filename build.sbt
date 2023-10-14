@@ -24,18 +24,29 @@ val scalaVersions =
     scala3Version
   )
 
-def subproject(name: String) = Project(
-  id = name,
-  base = file(name)
-).settings(
-  scalaVersion := scala213Version,
-  crossScalaVersions := scalaVersions,
-  libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
-  sonatypeCredentialHost := "s01.oss.sonatype.org",
-  sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
-)
+def subproject(name: String) = {
+  val fullName = s"periodic-$name"
+  Project(
+    id = fullName,
+    base = file(fullName)
+  ).settings(
+    scalaVersion := scala213Version,
+    crossScalaVersions := scalaVersions,
+    libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
+    sonatypeCredentialHost := "s01.oss.sonatype.org",
+    sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+  )
+}
 
-lazy val periodic = subproject("periodic")
+lazy val api = subproject("api")
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.slf4j" % "slf4j-api" % "2.0.7"
+    )
+  )
+
+lazy val jdk = subproject("jdk")
+  .dependsOn(api)
   .settings(
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-api" % "2.0.7",
@@ -46,7 +57,8 @@ lazy val periodic = subproject("periodic")
 lazy val root = project
   .in(file("."))
   .aggregate(
-    periodic
+    api,
+    jdk
   )
   .settings(
     publish / skip := true,
