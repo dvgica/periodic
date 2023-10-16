@@ -32,7 +32,7 @@ sealed trait UpdateAttemptStrategy {
 }
 object UpdateAttemptStrategy {
   case class Infinite(attemptInterval: FiniteDuration) extends UpdateAttemptStrategy {
-    val description = s"Attempt update indefinitely"
+    val description = s"Attempt update indefinitely every $attemptInterval"
   }
   case class Finite(
       attemptInterval: FiniteDuration,
