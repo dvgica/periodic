@@ -2,7 +2,6 @@ package ca.dvgi.periodic.jdk
 
 import ca.dvgi.periodic._
 import scala.concurrent.duration._
-import org.slf4j.LoggerFactory
 import scala.util.control.NonFatal
 import java.util.concurrent.Executors
 import scala.reflect.ClassTag
@@ -11,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Try
+import org.slf4j.LoggerFactory
 import scala.util.Success
 import scala.util.Failure
 import scala.concurrent.Await
@@ -43,36 +43,32 @@ class JdkAutoUpdatingVar[T](
     updateVar: => T,
     updateInterval: UpdateInterval[T],
     updateAttemptStrategy: UpdateAttemptStrategy,
-    blockUntilReadyTimeout: Option[Duration],
-    varNameOverride: Option[String] = None,
+    blockUntilReadyTimeout: Option[Duration] = None,
     handleInitializationError: PartialFunction[Throwable, T] = PartialFunction.empty,
+    varNameOverride: Option[String] = None,
     executorOverride: Option[ScheduledExecutorService] = None
 )(implicit ct: ClassTag[T])
-    extends AutoUpdatingVar[Future, T] {
+    extends AutoUpdatingVar[Identity, Future, T](
+      updateVar,
+      updateInterval,
+      updateAttemptStrategy,
+      handleInitializationError,
+      varNameOverride
+    ) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val executor = executorOverride.getOrElse(Executors.newScheduledThreadPool(1))
-
-  private val varName = varNameOverride match {
-    case Some(n) => n
-    case None    => ct.runtimeClass.getSimpleName
-  }
 
   override def ready: Future[Unit] = _ready.future
 
   override def latest: T = variable.getOrElse(throw UnreadyAutoUpdatingVarException)
 
   override def close(): Unit = {
-    log.info(s"$this: Shutting down")
     if (executorOverride.isEmpty)
       executor.shutdownNow()
-    ()
+    super.close()
   }
-
-  override def toString: String = s"JdkAutoUpdatingVar($varName)"
-
-  log.info(s"$this: Starting. ${updateAttemptStrategy.description}")
 
   @volatile private var variable: Option[T] = None
 
@@ -87,7 +83,7 @@ class JdkAutoUpdatingVar[T](
               updateVar
             } catch {
               case NonFatal(e) =>
-                log.error(s"$this: Failed to initialize var", e)
+                log.error(logString("Failed to initialize var"), e)
                 throw e
             }
           } catch (handleInitializationError))
@@ -96,7 +92,7 @@ class JdkAutoUpdatingVar[T](
           case Success(value) =>
             variable = Some(value)
             _ready.complete(Success(()))
-            log.info(s"$this: Successfully initialized")
+            log.info(logString("Successfully initialized"))
             scheduleUpdate(updateInterval.duration(value))
           case Failure(e) =>
             _ready.complete(Failure(e))
@@ -112,7 +108,7 @@ class JdkAutoUpdatingVar[T](
   }
 
   private def scheduleUpdate(nextUpdate: FiniteDuration): Unit = {
-    log.info(s"$this: Scheduling update of var in: $nextUpdate")
+    log.info(logString(s"Scheduling update of var in: $nextUpdate"))
 
     executor.schedule(new UpdateVar(1), nextUpdate.length, nextUpdate.unit)
     ()
@@ -123,7 +119,7 @@ class JdkAutoUpdatingVar[T](
       try {
         val newV = updateVar
         variable = Some(newV)
-        log.info(s"$this: Successfully updated")
+        log.info(logString("Successfully updated"))
         scheduleUpdate(updateInterval.duration(newV))
       } catch {
         case NonFatal(e) =>
@@ -134,7 +130,7 @@ class JdkAutoUpdatingVar[T](
                 if attempt < maxAttempts =>
               reattempt(e, attemptInterval)
             case UpdateAttemptStrategy.Finite(_, _, attemptExhaustionBehavior) =>
-              log.error(s"$this: Var update attempts exhausted! Final attempt exception", e)
+              log.error(logString("Var update attempts exhausted! Final attempt exception"), e)
               attemptExhaustionBehavior.run(varName)
           }
       }
@@ -142,7 +138,7 @@ class JdkAutoUpdatingVar[T](
 
     private def reattempt(e: Throwable, delay: FiniteDuration): Unit = {
       log.warn(
-        s"$this: Unhandled exception when trying to update var, retrying in $delay",
+        logString(s"Unhandled exception when trying to update var, retrying in $delay"),
         e
       )
       executor.schedule(
@@ -153,4 +149,6 @@ class JdkAutoUpdatingVar[T](
       ()
     }
   }
+
+  override def toString: String = s"JdkAutoUpdatingVar($varName)"
 }
