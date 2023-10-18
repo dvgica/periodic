@@ -15,3 +15,4 @@
 .bloop
 .bsp
 **/metals.sbt
+*.log
