@@ -8,22 +8,22 @@ import scala.annotation.nowarn
   * guaranteed to get the latest var.
   *
   * An AutoUpdatingVar attempts to get the variable immediately upon class instantiation. If this
-  * fails, there are no further attempts, and the effect returned by the `ready` method will
-  * complete unsuccesfully. If it succeeds, the effect completes successfully and `latest` can be
-  * safely called.
+  * fails, there are no further attempts (unless specified via `handleInitializationError1), and the
+  * effect returned by the `ready` method will complete unsuccesfully. If it succeeds, the effect
+  * completes successfully and `latest` can be safely called.
   *
-  * Failed updates (those that throw an exception) may be retried with various configurations.
-  * However, if the initial update of the var during class instantiationfails
+  * Failed updates other than the first (those that throw an exception) may be retried with various
+  * configurations.
   *
   * A successful update schedules the next update, with an interval that can vary based on the
   * just-updated var.
   *
   * @param updateVar
-  *   A thunk run to initialize and update the var
+  *   A thunk to initialize and update the var
   * @param updateInterval
   *   Configuration for the update interval
   * @param updateAttemptStrategy
-  *   Configuration for attempting updates
+  *   Configuration for retrying updates on failure
   * @param handleInitializationError
   *   A PartialFunction used to recover from exceptions in the var initialization. If unspecified,
   *   the exception will fail the effect returned by `ready`.

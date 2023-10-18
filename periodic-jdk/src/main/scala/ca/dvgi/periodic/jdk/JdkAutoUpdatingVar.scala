@@ -22,20 +22,20 @@ import scala.concurrent.Await
   * to them.
   *
   * @param updateVar
-  *   A thunk run to initialize and update the var
+  *   A thunk to initialize and update the var
   * @param updateInterval
   *   Configuration for the update interval
   * @param updateAttemptStrategy
-  *   Configuration for attempting updates
+  *   Configuration for retrying updates on failure
   * @param blockUntilReadyTimeout
   *   If specified, class instantiation will block the calling thread until it succeeds, fails, or
   *   the timeout is reached.
+  * @param handleInitializationError
+  *   A PartialFunction used to recover from exceptions in the var initialization. If unspecified,
+  *   the exception will fail the effect returned by `ready`.
   * @param varNameOverride
   *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
   *   used.
-  * @param handleInitializationError
-  *   A PartialFunction used to recover from exceptions in the var initialization. If unspecified,
-  *   the exception will be thrown in the thread which called `new AutoUpdatingVar`.
   * @param executorOverride
   *   If present, will be used instead of starting a new thread.
   */
