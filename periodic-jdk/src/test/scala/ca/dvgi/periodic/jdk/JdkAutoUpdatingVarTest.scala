@@ -92,7 +92,7 @@ class JdkAutoUpdatingVarTest extends munit.FunSuite {
   test("returns a failed future from ready if the first update fails") {
     case object TestException extends RuntimeException
 
-    val v = new JdkAutoUpdatingVar(
+    val v = new JdkAutoUpdatingVar[Int](
       throw TestException,
       UpdateInterval.Static(1.seconds),
       UpdateAttemptStrategy.Infinite(1.second)
@@ -123,7 +123,7 @@ class JdkAutoUpdatingVarTest extends munit.FunSuite {
     case object TestException extends RuntimeException
 
     intercept[TestException.type] {
-      new JdkAutoUpdatingVar(
+      new JdkAutoUpdatingVar[Int](
         throw TestException,
         UpdateInterval.Static(1.seconds),
         UpdateAttemptStrategy.Infinite(1.second),
