@@ -3,6 +3,7 @@ inThisBuild(
     organization := "ca.dvgi",
     homepage := Some(url("https://github.com/dvgica/periodic")),
     licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+    description := "A Scala library for self-updating vars and other periodic actions",
     developers := List(
       Developer(
         "dvgica",
