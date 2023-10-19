@@ -225,7 +225,7 @@ class JdkAutoUpdatingVarTest extends munit.FunSuite {
 
     val v = new JdkAutoUpdatingVar(
       holder.get,
-      UpdateInterval.Static(500.milli),
+      UpdateInterval.Static(2.seconds),
       UpdateAttemptStrategy.Infinite(1.second),
       Some(1.second),
       executorOverride = Some(ses)
@@ -236,7 +236,7 @@ class JdkAutoUpdatingVarTest extends munit.FunSuite {
     v.close()
     assert(!ses.isShutdown())
 
-    Thread.sleep(1000)
+    Thread.sleep(5000)
     assertEquals(holder.get, 2)
   }
 }
