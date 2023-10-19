@@ -59,7 +59,7 @@ println(s"Cached data is ${data.latest}")
 // data has not been updated yet, same result
 println(s"Cached data is still ${data.latest}")
 
-Thread.sleep(2000)
+Thread.sleep(1100)
 
 // the `AutoUpdatingVar` fetched new data while this thread was sleeping
 println(s"New cached data is ${data.latest}")
