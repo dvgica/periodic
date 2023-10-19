@@ -1,16 +1,16 @@
 # Periodic
 [![Maven](https://img.shields.io/maven-central/v/ca.dvgi/periodic_2.13?color=blue)](https://search.maven.org/search?q=g:ca.dvgi%20periodic) [![CI](https://img.shields.io/github/actions/workflow/status/dvgica/periodic/ci.yml?branch=main)](https://github.com/dvgica/periodic/actions)
 
-Periodic is a Scala library providing a variable that self-updates on a periodic basis.
+Periodic is a Scala library providing an in-memory cached variable that self-updates on a periodic basis.
 
 - [Motivation](#motivation)
 - [Installation](#installation)
-- [Usage](#usage)
+- [Usage Example](#usage-example)
 - [Contributing](#contributing)
 
 ## Motivation
 
-This library is useful for caching semi-static data in memory and having that data automatically updated periodically. The source of the data is typically another process that can be queried to get a new data value. If the cached data becomes stale at a predictable interval, the cached data can be updated before this occurs. If the cached data becomes stale at unpredictable times, the stale data must still be usable. Concrete use cases include:
+This library is useful for caching semi-static data in memory and having that data be automatically and periodically updated. The source of the data is typically another process that can be queried to get a new data value. If the cached data becomes stale at a predictable interval, the cached data can be updated before this occurs. If the cached data becomes stale at unpredictable times, the stale data must still be usable. Concrete use cases include:
 
 - caching a time-limited key or token, and replacing it with a new one before it expires (e.g. an OAuth access token)
 - caching data that changes irregularly and occasionally, such as a list of a country's airports and their codes
@@ -19,7 +19,7 @@ This library is useful for caching semi-static data in memory and having that da
 
 Periodic is available on Maven Central for Scala 2.12, 2.13, and 3. Java 11+ is required.
 
-There is currently a `periodic-api` project which exposes an interface for `AutoUpdatingVar`, and a `periodic-jdk` project which implements the API using primitives included in the JDK. Other implementations may follow.
+There is a `periodic-api` project which exposes an interface for `AutoUpdatingVar`, and currently a single implementation using JDK primitives in the `periodic-jdk` project. Other implementations may follow.
 
 If a specific implementation is required, add the following dependency to your project:
 
@@ -29,7 +29,7 @@ If only the interface is required, add:
 
 `"ca.dvgi" %% "periodic-api" % "<latest>"`
 
-## Usage
+## Usage Example
 
 ``` scala
 import ca.dvgi.periodic.jdk._
