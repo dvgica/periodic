@@ -66,45 +66,53 @@ class JdkAutoUpdatingVar[T](
   override def latest: T = variable.getOrElse(throw UnreadyAutoUpdatingVarException)
 
   override def close(): Unit = {
-    nextTask.cancel(true)
+    CloseLock.synchronized {
+      closed = true
+      nextTask.foreach(_.cancel(true))
+    }
     if (executorOverride.isEmpty)
       executor.shutdownNow()
     super.close()
   }
 
+  private case object CloseLock
+
+  @volatile private var closed = false
+
   @volatile private var variable: Option[T] = None
 
   private val _ready = Promise[Unit]()
 
-  @volatile private var nextTask: ScheduledFuture[_] =
-    executor.schedule(
-      new Runnable {
-        def run(): Unit = {
-          val tryV =
-            Try(try {
-              try {
-                updateVar
-              } catch {
-                case NonFatal(e) =>
-                  log.error(logString("Failed to initialize var"), e)
-                  throw e
-              }
-            } catch (handleInitializationError))
+  @volatile private var nextTask: Option[ScheduledFuture[_]] = None
 
-          tryV match {
-            case Success(value) =>
-              variable = Some(value)
-              _ready.complete(Success(()))
-              log.info(logString("Successfully initialized"))
-              scheduleUpdate(updateInterval.duration(value))
-            case Failure(e) =>
-              _ready.complete(Failure(e))
-          }
+  executor.schedule(
+    new Runnable {
+      def run(): Unit = {
+        val tryV =
+          Try(try {
+            try {
+              updateVar
+            } catch {
+              case NonFatal(e) =>
+                log.error(logString("Failed to initialize var"), e)
+                throw e
+            }
+          } catch (handleInitializationError))
+
+        tryV match {
+          case Success(value) =>
+            variable = Some(value)
+            _ready.complete(Success(()))
+            log.info(logString("Successfully initialized"))
+            scheduleUpdate(updateInterval.duration(value))
+          case Failure(e) =>
+            _ready.complete(Failure(e))
         }
-      },
-      0,
-      TimeUnit.NANOSECONDS
-    )
+      }
+    },
+    0,
+    TimeUnit.NANOSECONDS
+  )
 
   blockUntilReadyTimeout.foreach { timeout =>
     Await.result(ready, timeout)
@@ -113,7 +121,10 @@ class JdkAutoUpdatingVar[T](
   private def scheduleUpdate(nextUpdate: FiniteDuration): Unit = {
     log.info(logString(s"Scheduling update of var in: $nextUpdate"))
 
-    nextTask = executor.schedule(new UpdateVar(1), nextUpdate.length, nextUpdate.unit)
+    CloseLock.synchronized {
+      if (!closed)
+        nextTask = Some(executor.schedule(new UpdateVar(1), nextUpdate.length, nextUpdate.unit))
+    }
     ()
   }
 
@@ -144,11 +155,17 @@ class JdkAutoUpdatingVar[T](
         logString(s"Unhandled exception when trying to update var, retrying in $delay"),
         e
       )
-      executor.schedule(
-        new UpdateVar(attempt + 1),
-        delay.length,
-        delay.unit
-      )
+
+      CloseLock.synchronized {
+        if (!closed)
+          nextTask = Some(
+            executor.schedule(
+              new UpdateVar(attempt + 1),
+              delay.length,
+              delay.unit
+            )
+          )
+      }
       ()
     }
   }
