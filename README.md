@@ -65,7 +65,7 @@ Thread.sleep(2000)
 println(s"New cached data is ${data.latest}")
 ```
 
-This returns something like:
+This results in the following output:
 ```
 Cached data is 2023-10-19T02:35:22.467418Z
 Cached data is still 2023-10-19T02:35:22.467418Z
