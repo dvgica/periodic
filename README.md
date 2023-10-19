@@ -56,6 +56,7 @@ Await.result(data.ready, 5.seconds)
 
 // the data is cached in-memory and can be access using `latest`
 println(s"Cached data is ${data.latest}")
+Thread.sleep(10)
 // data has not been updated yet, same result
 println(s"Cached data is still ${data.latest}")
 
