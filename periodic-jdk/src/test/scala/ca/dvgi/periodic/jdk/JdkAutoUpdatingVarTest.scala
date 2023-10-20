@@ -98,7 +98,7 @@ class JdkAutoUpdatingVarTest extends munit.FunSuite {
       UpdateAttemptStrategy.Infinite(1.second)
     )
 
-    intercept[TestException.type] { Await.result(v.ready, 1.second) }
+    val _ = intercept[TestException.type] { Await.result(v.ready, 1.second) }
     v.close
   }
 
@@ -113,7 +113,7 @@ class JdkAutoUpdatingVarTest extends munit.FunSuite {
       UpdateAttemptStrategy.Infinite(1.second)
     )
 
-    intercept[UnreadyAutoUpdatingVarException.type] { v.latest }
+    val _ = intercept[UnreadyAutoUpdatingVarException.type] { v.latest }
     v.close
   }
 
