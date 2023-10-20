@@ -70,8 +70,10 @@ class JdkAutoUpdatingVar[T](
       closed = true
       nextTask.foreach(_.cancel(true))
     }
-    if (executorOverride.isEmpty)
+    if (executorOverride.isEmpty) {
       executor.shutdownNow()
+      ()
+    }
     super.close()
   }
 
