@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
   * guaranteed to get the latest var.
   *
   * An AutoUpdatingVar attempts to get the variable immediately upon class instantiation. If this
-  * fails, there are no further attempts (unless specified via `handleInitializationError1), and the
+  * fails, there are no further attempts (unless specified via `handleInitializationError`), and the
   * effect returned by the `ready` method will complete unsuccesfully. If it succeeds, the effect
   * completes successfully and `latest` can be safely called.
   *
@@ -30,8 +30,7 @@ import org.slf4j.LoggerFactory
   *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
   *   used.
   */
-class AutoUpdatingVar[U[_], R[_], T](
-    autoUpdater: AutoUpdater[U, R, T],
+class AutoUpdatingVar[U[_], R[_], T](autoUpdater: AutoUpdater[U, R, T])(
     updateVar: => U[T],
     updateInterval: UpdateInterval[T],
     updateAttemptStrategy: UpdateAttemptStrategy,
@@ -47,31 +46,35 @@ class AutoUpdatingVar[U[_], R[_], T](
 
   private val log = LoggerFactory.getLogger(s"AutoUpdatingVar[$varName]")
 
-  log.info(s"$this: Starting. ${updateAttemptStrategy.description}")
+  log.info(s"Starting. ${updateAttemptStrategy.description}")
 
-  /** @return
-    *   An effect which, once successfully completed, signifies that the AutoUpdatingVar has a
-    *   value, i.e. `latest` can be called and no exception will be thrown.
-    */
-  def ready: R[Unit] = autoUpdater.start(
+  private val _ready = autoUpdater.start(
     log,
-    updateVar,
+    () => updateVar,
     updateInterval,
     updateAttemptStrategy,
     handleInitializationError
   )
 
-  /** Wait for `ready` to be completed before calling this method.
+  /** @return
+    *   An effect which, once successfully completed, signifies that the AutoUpdatingVar has a
+    *   value, i.e. `latest` can be called and no exception will be thrown.
+    */
+  def ready: R[Unit] = _ready
+
+  /** Get the latest variable value from memory. Does not attempt to update the var.
+    *
+    * Wait for `ready` to be completed before calling this method.
     *
     * @return
     *   The latest value of the variable. Calling this method is thread-safe.
     * @throws UnreadyAutoUpdatingVarException
     *   if there is not yet a value to return
     */
-  def latest: T = autoUpdater.latest
+  def latest: T = autoUpdater.latest.getOrElse(throw UnreadyAutoUpdatingVarException)
 
   override def close(): Unit = {
     autoUpdater.close()
-    log.info(s"$this: Shutting down")
+    log.info(s"Shut down sucessfully")
   }
 }

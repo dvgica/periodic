@@ -45,7 +45,7 @@ class JdkAutoUpdater[T](
 
   override def start(
       log: Logger,
-      updateVar: => T,
+      updateVar: () => T,
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: UpdateAttemptStrategy,
       handleInitializationError: PartialFunction[Throwable, T]
@@ -56,7 +56,7 @@ class JdkAutoUpdater[T](
           val tryV =
             Try(try {
               try {
-                updateVar
+                updateVar()
               } catch {
                 case NonFatal(e) =>
                   log.error("Failed to initialize var", e)
@@ -71,7 +71,7 @@ class JdkAutoUpdater[T](
               log.info("Successfully initialized")
               scheduleUpdate(updateInterval.duration(value))(
                 log,
-                () => updateVar,
+                updateVar,
                 updateInterval,
                 updateAttemptStrategy
               )
@@ -84,14 +84,17 @@ class JdkAutoUpdater[T](
       TimeUnit.NANOSECONDS
     )
 
-    blockUntilReadyTimeout.foreach { timeout =>
-      Await.result(_ready.future, timeout)
+    blockUntilReadyTimeout match {
+      case Some(timeout) =>
+        Try(Await.result(_ready.future, timeout)) match {
+          case Success(_)         => Future.successful(())
+          case Failure(exception) => throw exception
+        }
+      case None => _ready.future
     }
-
-    _ready.future
   }
 
-  override def latest: T = variable.getOrElse(throw UnreadyAutoUpdatingVarException)
+  override def latest: Option[T] = variable
 
   override def close(): Unit = {
     CloseLock.synchronized {
@@ -131,6 +134,7 @@ class JdkAutoUpdater[T](
       updateAttemptStrategy: UpdateAttemptStrategy
   ) extends Runnable {
     def run(): Unit = {
+      log.info("Attempting var update...")
       try {
         val newV = updateVar()
         variable = Some(newV)
