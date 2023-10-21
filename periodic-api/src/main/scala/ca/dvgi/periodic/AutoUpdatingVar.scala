@@ -2,7 +2,6 @@ package ca.dvgi.periodic
 
 import scala.reflect.ClassTag
 import org.slf4j.LoggerFactory
-import scala.annotation.nowarn
 
 /** A variable that updates itself. `latest` can be called from multiple threads, which are all
   * guaranteed to get the latest var.
@@ -31,20 +30,36 @@ import scala.annotation.nowarn
   *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
   *   used.
   */
-abstract class AutoUpdatingVar[U[_], R[_], T](
-    @nowarn updateVar: => U[T],
-    @nowarn updateInterval: UpdateInterval[T],
+class AutoUpdatingVar[U[_], R[_], T](
+    autoUpdater: AutoUpdater[U, R, T],
+    updateVar: => U[T],
+    updateInterval: UpdateInterval[T],
     updateAttemptStrategy: UpdateAttemptStrategy,
-    @nowarn handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
+    handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
     varNameOverride: Option[String] = None
 )(implicit ct: ClassTag[T])
     extends AutoCloseable {
+
+  private val varName = varNameOverride match {
+    case Some(n) => n
+    case None    => ct.runtimeClass.getSimpleName
+  }
+
+  private val log = LoggerFactory.getLogger(s"AutoUpdatingVar[$varName]")
+
+  log.info(s"$this: Starting. ${updateAttemptStrategy.description}")
 
   /** @return
     *   An effect which, once successfully completed, signifies that the AutoUpdatingVar has a
     *   value, i.e. `latest` can be called and no exception will be thrown.
     */
-  def ready: R[Unit]
+  def ready: R[Unit] = autoUpdater.start(
+    log,
+    updateVar,
+    updateInterval,
+    updateAttemptStrategy,
+    handleInitializationError
+  )
 
   /** Wait for `ready` to be completed before calling this method.
     *
@@ -53,22 +68,10 @@ abstract class AutoUpdatingVar[U[_], R[_], T](
     * @throws UnreadyAutoUpdatingVarException
     *   if there is not yet a value to return
     */
-  def latest: T
+  def latest: T = autoUpdater.latest
 
   override def close(): Unit = {
+    autoUpdater.close()
     log.info(s"$this: Shutting down")
   }
-
-  private val log = LoggerFactory.getLogger(getClass)
-
-  log.info(s"$this: Starting. ${updateAttemptStrategy.description}")
-
-  override def toString: String = s"AutoUpdatingVar($varName)"
-
-  protected val varName = varNameOverride match {
-    case Some(n) => n
-    case None    => ct.runtimeClass.getSimpleName
-  }
-
-  protected def logString(msg: String): String = s"$this: $msg"
 }
