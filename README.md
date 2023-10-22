@@ -1,5 +1,5 @@
 # Periodic
-[![Maven](https://img.shields.io/maven-central/v/ca.dvgi/periodic_2.13?color=blue)](https://search.maven.org/search?q=g:ca.dvgi%20periodic) [![CI](https://img.shields.io/github/actions/workflow/status/dvgica/periodic/ci.yml?branch=main)](https://github.com/dvgica/periodic/actions)
+[![Maven](https://img.shields.io/maven-central/v/ca.dvgi/periodic-core_2.13?color=blue)](https://search.maven.org/search?q=g:ca.dvgi%20periodic) [![CI](https://img.shields.io/github/actions/workflow/status/dvgica/periodic/ci.yml?branch=main)](https://github.com/dvgica/periodic/actions)
 
 Periodic is a Scala library providing an in-memory cached variable (`AutoUpdatingVar`) that self-updates on a periodic basis.
 
@@ -21,20 +21,15 @@ For data that changes irregularly but must be up-to-date, you likely want to be 
 
 Periodic is available on Maven Central for Scala 2.12, 2.13, and 3. Java 11+ is required.
 
-There is a `periodic-api` project which exposes an interface for `AutoUpdatingVar`, and currently a single implementation using JDK primitives in the `periodic-jdk` project. Other implementations may follow.
+For the default JDK-based implementation, add the following dependency:
 
-If a specific implementation is required, add the following dependency to your project:
-
-`"ca.dvgi" %% "periodic-jdk" % "<latest>"`
-
-If only the interface is required, add:
-
-`"ca.dvgi" %% "periodic-api" % "<latest>"`
+`"ca.dvgi" %% "periodic-core" % "<latest>"`
 
 ## Usage Example
 
+Using the default JDK implementation:
+
 ``` scala
-import ca.dvgi.periodic.jdk._
 import ca.dvgi.periodic._
 import scala.concurrent.duration._
 import scala.concurrent.Await
@@ -42,7 +37,7 @@ import java.time.Instant
 
 def updateData(): String = Instant.now.toString
 
-val data = new JdkAutoUpdatingVar(
+val data = AutoUpdatingVar.jdk(
   updateData(),
   // can also be dynamic based on the last data
   UpdateInterval.Static(1.second), 
@@ -73,7 +68,21 @@ Cached data is still 2023-10-19T02:35:22.467418Z
 New cached data is 2023-10-19T02:35:23.474155Z
 ```
 
-For handling errors during update, and other options, see the Scaladocs. 
+For handling errors during update, and other options, see the Scaladocs.
+
+### Alternate Implementations
+
+Alternate implementations are provided by passing an `AutoUpdater` to `AutoUpdatingVar.apply`:
+
+``` scala
+AutoUpdatingVar(
+  SomeOtherAutoUpdater[String]() // T must be explicitly provided, it can't be inferred
+)(
+  updateData(),
+  UpdateInterval.Static(1.second),
+  UpdateAttemptStrategy.Infinite(5.seconds)
+)
+```
 
 ## Contributing 
 
