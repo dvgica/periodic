@@ -30,7 +30,7 @@ For the default JDK-based implementation, add the following dependency:
 
 ## Usage Example
 
-Using the default JDK implementation:
+Using the default JDK-based implementation:
 
 ``` scala
 import ca.dvgi.periodic._
