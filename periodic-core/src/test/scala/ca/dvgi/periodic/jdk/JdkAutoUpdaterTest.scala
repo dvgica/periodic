@@ -31,7 +31,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
   FunFixture(
     _ => {
       val holder = new VarHolder
-      val v = new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(5.seconds)))(
+      val v = new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(5.seconds)))(
         holder.get,
         UpdateInterval.Static(1.seconds),
         UpdateAttemptStrategy.Infinite(1.second)
@@ -66,7 +66,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
   FunFixture(
     _ => {
       val holder = new VarHolder
-      val v = new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+      val v = new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(1.second)))(
         holder.get,
         UpdateInterval.Dynamic((i: Int) => i * 1.second),
         UpdateAttemptStrategy.Infinite(1.second)
@@ -98,7 +98,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
 
   FunFixture(
     _ => {
-      new AutoUpdatingVar(new JdkAutoUpdater[Int]())(
+      new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int]())(
         throw TestException,
         UpdateInterval.Static(1.seconds),
         UpdateAttemptStrategy.Infinite(1.second)
@@ -111,7 +111,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
 
   FunFixture(
     _ => {
-      new AutoUpdatingVar(new JdkAutoUpdater[Int]())(
+      new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int]())(
         {
           Thread.sleep(1000)
           1
@@ -129,7 +129,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
     "returns a failed future from constructor if the first update fails and instructed to block"
   ) {
     intercept[TestException.type] {
-      new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+      new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(1.second)))(
         throw TestException,
         UpdateInterval.Static(1.seconds),
         UpdateAttemptStrategy.Infinite(1.second)
@@ -139,7 +139,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
 
   FunFixture(
     _ => {
-      new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+      new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(1.second)))(
         throw TestException,
         UpdateInterval.Static(1.seconds),
         UpdateAttemptStrategy.Infinite(1.second),
@@ -159,7 +159,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
     _ => {
       val holder = new VarErrorHolder
       val v =
-        new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+        new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(1.second)))(
           holder.get,
           UpdateInterval.Static(1.second),
           UpdateAttemptStrategy.Infinite(1.second),
@@ -190,7 +190,7 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
     _ => {
       val holder = new VarErrorHolder
       val v =
-        new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+        new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(1.second)))(
           holder.get,
           UpdateInterval.Static(1.second),
           UpdateAttemptStrategy
@@ -229,7 +229,9 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
       val holder = new VarHolder
       val ses = Executors.newScheduledThreadPool(1)
       val v =
-        new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second), executorOverride = Some(ses)))(
+        new AutoUpdatingVar(
+          new IdentityJdkAutoUpdater[Int](Some(1.second), executorOverride = Some(ses))
+        )(
           holder.get,
           UpdateInterval.Static(2.seconds),
           UpdateAttemptStrategy.Infinite(1.second)

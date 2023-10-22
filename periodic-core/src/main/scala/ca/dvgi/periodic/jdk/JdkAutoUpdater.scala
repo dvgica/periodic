@@ -26,10 +26,10 @@ import java.util.concurrent.ScheduledFuture
   * @param executorOverride
   *   If present, will be used instead of starting a new thread.
   */
-class JdkAutoUpdater[T](
-    blockUntilReadyTimeout: Option[Duration] = None,
-    executorOverride: Option[ScheduledExecutorService] = None
-) extends AutoUpdater[Identity, Future, T] {
+abstract class JdkAutoUpdater[U[T], T](
+    blockUntilReadyTimeout: Option[Duration],
+    executorOverride: Option[ScheduledExecutorService]
+) extends AutoUpdater[U, Future, T] {
 
   private val executor = executorOverride.getOrElse(Executors.newScheduledThreadPool(1))
 
@@ -45,10 +45,10 @@ class JdkAutoUpdater[T](
 
   override def start(
       log: Logger,
-      updateVar: () => T,
+      updateVar: () => U[T],
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: UpdateAttemptStrategy,
-      handleInitializationError: PartialFunction[Throwable, T]
+      handleInitializationError: PartialFunction[Throwable, U[T]]
   ): Future[Unit] = {
     executor.schedule(
       new Runnable {
@@ -57,13 +57,13 @@ class JdkAutoUpdater[T](
             Try(try {
               try {
                 log.info("Attempting initialization...")
-                updateVar()
+                evalUpdate(updateVar())
               } catch {
                 case NonFatal(e) =>
                   log.error("Failed to initialize var", e)
                   throw e
               }
-            } catch (handleInitializationError))
+            } catch (handleInitializationError.andThen(evalUpdate _)))
 
           tryV match {
             case Success(value) =>
@@ -108,9 +108,11 @@ class JdkAutoUpdater[T](
     ()
   }
 
+  protected def evalUpdate(ut: U[T]): T
+
   private def scheduleUpdate(nextUpdate: FiniteDuration)(implicit
       log: Logger,
-      updateVar: () => T,
+      updateVar: () => U[T],
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: UpdateAttemptStrategy
   ): Unit = {
@@ -131,14 +133,14 @@ class JdkAutoUpdater[T](
 
   private class UpdateVar(attempt: Int)(implicit
       log: Logger,
-      updateVar: () => T,
+      updateVar: () => U[T],
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: UpdateAttemptStrategy
   ) extends Runnable {
     def run(): Unit = {
       log.info("Attempting var update...")
       try {
-        val newV = updateVar()
+        val newV = evalUpdate(updateVar())
         variable = Some(newV)
         log.info("Successfully updated")
         scheduleUpdate(updateInterval.duration(newV))
@@ -159,7 +161,7 @@ class JdkAutoUpdater[T](
 
     private def reattempt(e: Throwable, delay: FiniteDuration)(implicit
         log: Logger,
-        updateVar: () => T,
+        updateVar: () => U[T],
         updateInterval: UpdateInterval[T],
         updateAttemptStrategy: UpdateAttemptStrategy
     ): Unit = {
