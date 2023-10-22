@@ -2,6 +2,11 @@ package ca.dvgi.periodic
 
 import scala.reflect.ClassTag
 import org.slf4j.LoggerFactory
+import ca.dvgi.periodic.jdk.Identity
+import ca.dvgi.periodic.jdk.JdkAutoUpdater
+import scala.concurrent.duration.Duration
+import scala.concurrent.Future
+import java.util.concurrent.ScheduledExecutorService
 
 /** A variable that updates itself. `latest` can be called from multiple threads, which are all
   * guaranteed to get the latest var.
@@ -76,5 +81,54 @@ class AutoUpdatingVar[U[_], R[_], T](autoUpdater: AutoUpdater[U, R, T])(
   override def close(): Unit = {
     autoUpdater.close()
     log.info(s"Shut down sucessfully")
+  }
+}
+
+object AutoUpdatingVar {
+
+  /** @see
+    *   [[ca.dvgi.periodic.AutoUpdatingVar]]
+    */
+  def apply[U[_], R[_], T](autoUpdater: AutoUpdater[U, R, T])(
+      updateVar: => U[T],
+      updateInterval: UpdateInterval[T],
+      updateAttemptStrategy: UpdateAttemptStrategy,
+      handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
+      varNameOverride: Option[String] = None
+  )(implicit ct: ClassTag[T]): AutoUpdatingVar[U, R, T] = {
+    new AutoUpdatingVar(autoUpdater)(
+      updateVar,
+      updateInterval,
+      updateAttemptStrategy,
+      handleInitializationError,
+      varNameOverride
+    )
+  }
+
+  /** An AutoUpdatingVar based on only the JDK.
+    *
+    * @see
+    *   [[ca.dvgi.periodic.jdk.JdkAutoUpdater]]
+    * @see
+    *   [[ca.dvgi.periodic.AutoUpdatingVar]]
+    */
+  def jdk[T](
+      updateVar: => T,
+      updateInterval: UpdateInterval[T],
+      updateAttemptStrategy: UpdateAttemptStrategy,
+      handleInitializationError: PartialFunction[Throwable, T] = PartialFunction.empty,
+      varNameOverride: Option[String] = None,
+      blockUntilReadyTimeout: Option[Duration] = None,
+      executorOverride: Option[ScheduledExecutorService] = None
+  )(implicit ct: ClassTag[T]): AutoUpdatingVar[Identity, Future, T] = {
+    new AutoUpdatingVar(
+      new JdkAutoUpdater[T](blockUntilReadyTimeout, executorOverride)
+    )(
+      updateVar,
+      updateInterval,
+      updateAttemptStrategy,
+      handleInitializationError,
+      varNameOverride
+    )
   }
 }

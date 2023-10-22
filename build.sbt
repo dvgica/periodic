@@ -39,15 +39,7 @@ def subproject(name: String) = {
   )
 }
 
-lazy val api = subproject("api")
-  .settings(
-    libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-api" % "2.0.7"
-    )
-  )
-
-lazy val jdk = subproject("jdk")
-  .dependsOn(api)
+lazy val core = subproject("core")
   .settings(
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-api" % "2.0.7",
@@ -59,8 +51,7 @@ lazy val jdk = subproject("jdk")
 lazy val root = project
   .in(file("."))
   .aggregate(
-    api,
-    jdk
+    core
   )
   .settings(
     publish / skip := true,
