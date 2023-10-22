@@ -2,8 +2,7 @@ package ca.dvgi.periodic
 
 import scala.reflect.ClassTag
 import org.slf4j.LoggerFactory
-import ca.dvgi.periodic.jdk.Identity
-import ca.dvgi.periodic.jdk.JdkAutoUpdater
+import ca.dvgi.periodic.jdk._
 import scala.concurrent.duration.Duration
 import scala.concurrent.Future
 import java.util.concurrent.ScheduledExecutorService
@@ -122,7 +121,34 @@ object AutoUpdatingVar {
       executorOverride: Option[ScheduledExecutorService] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[Identity, Future, T] = {
     new AutoUpdatingVar(
-      new JdkAutoUpdater[T](blockUntilReadyTimeout, executorOverride)
+      new IdentityJdkAutoUpdater[T](blockUntilReadyTimeout, executorOverride)
+    )(
+      updateVar,
+      updateInterval,
+      updateAttemptStrategy,
+      handleInitializationError,
+      varNameOverride
+    )
+  }
+
+  /** An AutoUpdatingVar based on only the JDK, for use when `updateVar` returns a `Future`.
+    *
+    * @see
+    *   [[ca.dvgi.periodic.jdk.JdkAutoUpdater]]
+    * @see
+    *   [[ca.dvgi.periodic.AutoUpdatingVar]]
+    */
+  def jdkFuture[T](
+      updateVar: => Future[T],
+      updateInterval: UpdateInterval[T],
+      updateAttemptStrategy: UpdateAttemptStrategy,
+      handleInitializationError: PartialFunction[Throwable, Future[T]] = PartialFunction.empty,
+      varNameOverride: Option[String] = None,
+      blockUntilReadyTimeout: Option[Duration] = None,
+      executorOverride: Option[ScheduledExecutorService] = None
+  )(implicit ct: ClassTag[T]): AutoUpdatingVar[Future, Future, T] = {
+    new AutoUpdatingVar(
+      new FutureJdkAutoUpdater[T](blockUntilReadyTimeout, executorOverride)
     )(
       updateVar,
       updateInterval,
