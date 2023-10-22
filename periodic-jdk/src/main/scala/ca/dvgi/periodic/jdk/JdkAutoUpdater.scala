@@ -56,6 +56,7 @@ class JdkAutoUpdater[T](
           val tryV =
             Try(try {
               try {
+                log.info("Attempting initialization...")
                 updateVar()
               } catch {
                 case NonFatal(e) =>

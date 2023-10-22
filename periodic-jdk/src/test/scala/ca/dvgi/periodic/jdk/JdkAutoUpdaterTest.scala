@@ -5,7 +5,8 @@ import scala.concurrent.duration._
 import scala.util.Success
 import org.slf4j.LoggerFactory
 import scala.concurrent.Await
-// import java.util.concurrent.Executors
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 class JdkAutoUpdaterTest extends munit.FunSuite {
 
@@ -141,111 +142,117 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
     }
   }
 
-  // test(
-  //   "handles initialization errors"
-  // ) {
-  //   case object TestException extends RuntimeException
+  FunFixture(
+    _ => {
+      new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+        throw TestException,
+        UpdateInterval.Static(1.seconds),
+        UpdateAttemptStrategy.Infinite(1.second),
+        { case _ =>
+          42
+        }
+      )
+    },
+    (f: AutoCloseable) => f.close()
+  ).test(
+    "handles initialization errors"
+  ) { v =>
+    assertEquals(v.latest, 42)
+  }
 
-  //   val v =
-  //     new JdkAutoUpdatingVar(
-  //       throw TestException,
-  //       UpdateInterval.Static(1.seconds),
-  //       UpdateAttemptStrategy.Infinite(1.second),
-  //       Some(1.second),
-  //       { case _ =>
-  //         42
-  //       }
-  //     )
+  FunFixture(
+    _ => {
+      val holder = new VarErrorHolder
+      val v =
+        new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+          holder.get,
+          UpdateInterval.Static(1.second),
+          UpdateAttemptStrategy.Infinite(1.second),
+          { case _ =>
+            42
+          }
+        )
+      (v, holder)
+    },
+    (f: (AutoCloseable, VarErrorHolder)) => f._1.close()
+  ).test("does infinite reattempts") { case (v, holder) =>
+    assertEquals(v.latest, 42)
+    assertEquals(holder.attempts, 1)
 
-  //   assertEquals(v.latest, 42)
-  //   v.close()
-  // }
+    Thread.sleep(1100)
 
-  // test("does infinite reattempts") {
-  //   val holder = new VarErrorHolder
-  //   val v =
-  //     new JdkAutoUpdatingVar(
-  //       holder.get,
-  //       UpdateInterval.Static(1.second),
-  //       UpdateAttemptStrategy.Infinite(1.second),
-  //       Some(1.second),
-  //       { case _ =>
-  //         42
-  //       }
-  //     )
+    assertEquals(v.latest, 42)
+    assertEquals(holder.attempts, 2)
 
-  //   assertEquals(v.latest, 42)
-  //   assertEquals(holder.attempts, 1)
+    Thread.sleep(1000)
 
-  //   Thread.sleep(1100)
+    assertEquals(v.latest, 42)
+    assertEquals(holder.attempts, 3)
+  }
 
-  //   assertEquals(v.latest, 42)
-  //   assertEquals(holder.attempts, 2)
+  var terminated = false
+  FunFixture(
+    _ => {
+      val holder = new VarErrorHolder
+      val v =
+        new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second)))(
+          holder.get,
+          UpdateInterval.Static(1.second),
+          UpdateAttemptStrategy
+            .Finite(1.second, 2, UpdateAttemptExhaustionBehavior.Custom(_ => terminated = true)),
+          { case _ =>
+            42
+          }
+        )
+      (v, holder)
+    },
+    (f: (AutoCloseable, VarErrorHolder)) => f._1.close()
+  ).test("does finite reattempts") { case (v, holder) =>
+    assertEquals(v.latest, 42)
+    assertEquals(holder.attempts, 1)
+    assertEquals(terminated, false)
 
-  //   Thread.sleep(1000)
+    Thread.sleep(1100)
 
-  //   assertEquals(v.latest, 42)
-  //   assertEquals(holder.attempts, 3)
+    assertEquals(v.latest, 42)
+    assertEquals(holder.attempts, 2)
+    assertEquals(terminated, false)
 
-  //   v.close()
-  // }
+    Thread.sleep(1000)
 
-  // test("does finite reattempts") {
-  //   val holder = new VarErrorHolder
-  //   var terminated = false
-  //   val v =
-  //     new JdkAutoUpdatingVar(
-  //       holder.get,
-  //       UpdateInterval.Static(1.second),
-  //       UpdateAttemptStrategy
-  //         .Finite(1.second, 2, UpdateAttemptExhaustionBehavior.Custom(_ => terminated = true)),
-  //       Some(1.second),
-  //       { case _ =>
-  //         42
-  //       }
-  //     )
+    assertEquals(v.latest, 42)
+    assertEquals(holder.attempts, 3)
+    assertEquals(terminated, true)
 
-  //   assertEquals(v.latest, 42)
-  //   assertEquals(holder.attempts, 1)
-  //   assertEquals(terminated, false)
+    Thread.sleep(1000)
 
-  //   Thread.sleep(1100)
+    assertEquals(holder.attempts, 3)
+  }
 
-  //   assertEquals(v.latest, 42)
-  //   assertEquals(holder.attempts, 2)
-  //   assertEquals(terminated, false)
+  FunFixture(
+    _ => {
+      val holder = new VarHolder
+      val ses = Executors.newScheduledThreadPool(1)
+      val v =
+        new AutoUpdatingVar(new JdkAutoUpdater[Int](Some(1.second), executorOverride = Some(ses)))(
+          holder.get,
+          UpdateInterval.Static(2.seconds),
+          UpdateAttemptStrategy.Infinite(1.second)
+        )
+      (v, holder, ses)
+    },
+    (f: (AutoCloseable, VarHolder, ScheduledExecutorService)) => {
+      f._1.close()
+      f._3.shutdownNow()
+      ()
+    }
+  ).test("can use an external SchedulerExecutorService") { case (v, holder, ses) =>
+    assertEquals(v.latest, 1)
 
-  //   Thread.sleep(1000)
+    v.close()
+    assert(!ses.isShutdown())
 
-  //   assertEquals(v.latest, 42)
-  //   assertEquals(holder.attempts, 3)
-  //   assertEquals(terminated, true)
-
-  //   Thread.sleep(1000)
-
-  //   assertEquals(holder.attempts, 3)
-
-  //   v.close()
-  // }
-
-  // test("can use an external SchedulerExecutorService") {
-  //   val holder = new VarHolder
-  //   val ses = Executors.newScheduledThreadPool(1)
-
-  //   val v = new JdkAutoUpdatingVar(
-  //     holder.get,
-  //     UpdateInterval.Static(2.seconds),
-  //     UpdateAttemptStrategy.Infinite(1.second),
-  //     Some(1.second),
-  //     executorOverride = Some(ses)
-  //   )
-
-  //   assertEquals(v.latest, 1)
-
-  //   v.close()
-  //   assert(!ses.isShutdown())
-
-  //   Thread.sleep(5000)
-  //   assertEquals(holder.get, 2)
-  // }
+    Thread.sleep(5000)
+    assertEquals(holder.get, 2)
+  }
 }
