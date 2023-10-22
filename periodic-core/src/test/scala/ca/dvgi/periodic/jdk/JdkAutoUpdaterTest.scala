@@ -17,7 +17,6 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
   class VarHolder {
     private var v = 1
     def get: Int = {
-      log.info("getting")
       val r = v
       v = v + 1
       r
