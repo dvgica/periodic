@@ -131,7 +131,7 @@ object AutoUpdatingVar {
     )
   }
 
-  /** An AutoUpdatingVar based on only the JDK.
+  /** An AutoUpdatingVar based on only the JDK, for use when `updateVar` returns a `Future`.
     *
     * @see
     *   [[ca.dvgi.periodic.jdk.JdkAutoUpdater]]
