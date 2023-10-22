@@ -3,14 +3,11 @@ package ca.dvgi.periodic.jdk
 import ca.dvgi.periodic._
 import scala.concurrent.duration._
 import scala.util.Success
-import org.slf4j.LoggerFactory
 import scala.concurrent.Await
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 
 class JdkAutoUpdaterTest extends munit.FunSuite {
-
-  private val log = LoggerFactory.getLogger(getClass)
 
   case object TestException extends RuntimeException
 
