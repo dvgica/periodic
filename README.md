@@ -25,6 +25,9 @@ For the default JDK-based implementation, add the following dependency:
 
 `"ca.dvgi" %% "periodic-core" % "<latest>"`
 
+### Dependencies
+- `periodic-core` depends only on `slf4j-api`
+
 ## Usage Example
 
 Using the default JDK implementation:
