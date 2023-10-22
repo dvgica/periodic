@@ -52,7 +52,7 @@ val data = AutoUpdatingVar.jdk( // or AutoUpdatingVar.jdkFuture if updateData re
 // see also the `blockUntilReadyTimeout` parameter
 Await.result(data.ready, 5.seconds)
 
-// the data is cached in-memory and can be access using `latest`
+// the data is cached in memory and can be accessed using `latest`
 println(s"Cached data is ${data.latest}")
 Thread.sleep(10)
 // data has not been updated yet, same result
