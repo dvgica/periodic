@@ -111,7 +111,6 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
     (f: AutoCloseable) => f.close()
   ).test("returns a failed future from ready if the first update fails") { v =>
     intercept[TestException.type] { Await.result(v.ready, 1.second) }
-    v.close
   }
 
   FunFixture(

@@ -102,8 +102,9 @@ class JdkAutoUpdater[T](
       closed = true
       nextTask.foreach(_.cancel(true))
     }
-    if (executorOverride.isEmpty)
-      executor.shutdownNow()
+    if (executorOverride.isEmpty) {
+      val _ = executor.shutdownNow()
+    }
     ()
   }
 

@@ -42,9 +42,9 @@ def subproject(name: String) = {
 lazy val core = subproject("core")
   .settings(
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-api" % "2.0.7",
+      "org.slf4j" % "slf4j-api" % "2.0.9",
       "org.scalameta" %% "munit" % "0.7.29" % Test,
-      "org.slf4j" % "slf4j-simple" % "2.0.7" % Test
+      "org.slf4j" % "slf4j-simple" % "2.0.9" % Test
     )
   )
 
