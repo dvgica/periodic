@@ -40,7 +40,7 @@ import java.time.Instant
 
 def updateData(): String = Instant.now.toString
 
-val data = AutoUpdatingVar.jdk( // or `AutoUpdatingVar.jdkFuture` if `updateData` returns a `scala.concurrent.Future`
+val data = AutoUpdatingVar.jdk( // or AutoUpdatingVar.jdkFuture if updateData returns a Future
   updateData(),
   // can also be dynamic based on the last data
   UpdateInterval.Static(1.second), 
