@@ -75,7 +75,7 @@ For handling errors during update, and other options, see the Scaladocs.
 
 ### Alternate Implementations
 
-Alternate implementations are provided by passing an `AutoUpdater` to `AutoUpdatingVar.apply`:
+Alternate implementations are used by passing an `AutoUpdater` to `AutoUpdatingVar.apply`:
 
 ``` scala
 AutoUpdatingVar(
