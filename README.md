@@ -1,7 +1,7 @@
 # Periodic
 [![Maven](https://img.shields.io/maven-central/v/ca.dvgi/periodic-core_2.13?color=blue)](https://search.maven.org/search?q=g:ca.dvgi%20periodic) [![CI](https://img.shields.io/github/actions/workflow/status/dvgica/periodic/ci.yml?branch=main)](https://github.com/dvgica/periodic/actions)
 
-Periodic is a Scala library providing an in-memory cached variable (`AutoUpdatingVar`) that self-updates on a periodic basis.
+Periodic is a low-dependency Scala library providing an in-memory cached variable (`AutoUpdatingVar`) that self-updates on a periodic basis.
 
 - [Motivation](#motivation)
 - [Installation](#installation)
