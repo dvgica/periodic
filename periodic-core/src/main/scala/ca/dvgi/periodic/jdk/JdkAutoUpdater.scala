@@ -27,8 +27,8 @@ import java.util.concurrent.ScheduledFuture
   *   If present, will be used instead of starting a new thread.
   */
 abstract class JdkAutoUpdater[U[T], T](
-    blockUntilReadyTimeout: Option[Duration],
-    executorOverride: Option[ScheduledExecutorService]
+    blockUntilReadyTimeout: Option[Duration] = None,
+    executorOverride: Option[ScheduledExecutorService] = None
 ) extends AutoUpdater[U, Future, T] {
 
   private val executor = executorOverride.getOrElse(Executors.newScheduledThreadPool(1))
@@ -39,8 +39,6 @@ abstract class JdkAutoUpdater[U[T], T](
 
   @volatile private var variable: Option[T] = None
 
-  private val _ready = Promise[Unit]()
-
   @volatile private var nextTask: Option[ScheduledFuture[_]] = None
 
   override def start(
@@ -50,6 +48,8 @@ abstract class JdkAutoUpdater[U[T], T](
       updateAttemptStrategy: UpdateAttemptStrategy,
       handleInitializationError: PartialFunction[Throwable, U[T]]
   ): Future[Unit] = {
+    val ready = Promise[Unit]()
+
     executor.schedule(
       new Runnable {
         def run(): Unit = {
@@ -68,7 +68,7 @@ abstract class JdkAutoUpdater[U[T], T](
           tryV match {
             case Success(value) =>
               variable = Some(value)
-              _ready.complete(Success(()))
+              ready.complete(Success(()))
               log.info("Successfully initialized")
               scheduleUpdate(updateInterval.duration(value))(
                 log,
@@ -77,7 +77,7 @@ abstract class JdkAutoUpdater[U[T], T](
                 updateAttemptStrategy
               )
             case Failure(e) =>
-              _ready.complete(Failure(e))
+              ready.complete(Failure(e))
           }
         }
       },
@@ -87,11 +87,11 @@ abstract class JdkAutoUpdater[U[T], T](
 
     blockUntilReadyTimeout match {
       case Some(timeout) =>
-        Try(Await.result(_ready.future, timeout)) match {
+        Try(Await.result(ready.future, timeout)) match {
           case Success(_)         => Future.successful(())
           case Failure(exception) => throw exception
         }
-      case None => _ready.future
+      case None => ready.future
     }
   }
 

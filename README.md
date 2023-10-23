@@ -25,8 +25,13 @@ For the default JDK-based implementation, add the following dependency:
 
 `"ca.dvgi" %% "periodic-core" % "<latest>"`
 
+For the Pekko-based implementation, use this dependency:
+
+`"ca.dvgi" %% "periodic-pekko" % "<latest>"`
+
 ### Dependencies
 - `periodic-core` depends only on `slf4j-api`
+- `periodic-pekko` depends on `pekko-stream` and `periodic-core`
 
 ## Usage Example
 
@@ -75,11 +80,21 @@ For handling errors during update, and other options, see the Scaladocs.
 
 ### Alternate Implementations
 
-Alternate implementations are used by passing an `AutoUpdater` to `AutoUpdatingVar.apply`:
+#### Pekko
+
+The Pekko implementation is completely non-blocking, does not need additional resources besides an `ActorSystem`, and will scale to many `AutoUpdatingVar`s without requiring tuning. 
+It is recommended if you are already using Pekko.
 
 ``` scala
-AutoUpdatingVar(
-  SomeOtherAutoUpdater[String]() // T must be explicitly provided, it can't be inferred
+import org.apache.pekko.actor.ActorSystem
+import ca.dvgi.periodic.pekko.PekkoAutoUpdater
+
+def updateData(): Future[String] = Future.successful(Instant.now.toString)
+
+implicit val actorSystem = ActorSystem() //
+
+val data = AutoUpdatingVar(
+  PekkoAutoUpdater[String]() // T must be explicitly provided, it can't be inferred
 )(
   updateData(),
   UpdateInterval.Static(1.second),

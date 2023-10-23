@@ -42,9 +42,17 @@ def subproject(name: String) = {
 lazy val core = subproject("core")
   .settings(
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-api" % "2.0.9",
-      "org.scalameta" %% "munit" % "0.7.29" % Test,
-      "org.slf4j" % "slf4j-simple" % "2.0.9" % Test
+      "org.slf4j" % "slf4j-api" % Versions.Slf4j,
+      "org.scalameta" %% "munit" % Versions.Munit % Test,
+      "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
+    )
+  )
+
+lazy val pekko = subproject("pekko")
+  .dependsOn(core)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.apache.pekko" %% "pekko-stream" % Versions.Pekko
     )
   )
 
