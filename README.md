@@ -91,7 +91,7 @@ import ca.dvgi.periodic.pekko.PekkoAutoUpdater
 
 def updateData(): Future[String] = Future.successful(Instant.now.toString)
 
-implicit val actorSystem = ActorSystem() //
+implicit val actorSystem = ActorSystem() // generally you should have an ActorSystem in your process already
 
 val data = AutoUpdatingVar(
   PekkoAutoUpdater[String]() // T must be explicitly provided, it can't be inferred
