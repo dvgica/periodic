@@ -7,11 +7,13 @@ import scala.concurrent.Await
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 
-class JdkAutoUpdaterTest extends munit.FunSuite {
+class JdkAutoUpdaterTest extends AutoUpdaterTestsFuture[Identity] {
+
+  def evalU[T](ut: Identity[T]): T = ut
 
   case object TestException extends RuntimeException
 
-  class VarHolder {
+  class VarHolder extends GenericVarHolder {
     private var v = 1
     def get: Int = {
       val r = v
@@ -28,44 +30,11 @@ class JdkAutoUpdaterTest extends munit.FunSuite {
     }
   }
 
-  FunFixture(
-    _ => {
-      val holder = new VarHolder
-      val v = new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(5.seconds)))(
-        holder.get,
-        UpdateInterval.Static(1.seconds),
-        UpdateAttemptStrategy.Infinite(1.second)
-      )
-      (v, holder)
-    },
-    (f: (AutoCloseable, VarHolder)) => f._1.close()
-  )
-    .test("periodically updates the var, blockng on start, and closes") { case (v, holder) =>
-      assert(v.ready.isCompleted)
-      assertEquals(v.ready.value, Some(Success(())))
-
-      assertEquals(v.latest, 1)
-      assertEquals(v.latest, 1) // value should still be cached
-
-      Thread.sleep(1100)
-
-      assertEquals(v.latest, 2)
-      assertEquals(v.latest, 2)
-
-      Thread.sleep(1000)
-
-      assertEquals(v.latest, 3)
-      assertEquals(v.latest, 3)
-
-      v.close()
-
-      Thread.sleep(1000)
-      assertEquals(holder.get, 4)
-    }
+  testBasicsWithBlocking(new IdentityJdkAutoUpdater[Int](Some(1.second)), new VarHolder)
 
   FunFixture(
     _ => {
-      val holder = new VarHolder
+      val holder = new VarHolder()
       val v = new AutoUpdatingVar(new IdentityJdkAutoUpdater[Int](Some(1.second)))(
         holder.get,
         UpdateInterval.Dynamic((i: Int) => i * 1.second),
