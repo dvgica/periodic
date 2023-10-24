@@ -1,7 +1,6 @@
 package ca.dvgi.periodic
 
 import munit.FunSuite
-import ca.dvgi.periodic._
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.util.Success
