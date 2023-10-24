@@ -21,13 +21,17 @@ For data that changes irregularly but must be up-to-date, you likely want to be 
 
 Periodic is available on Maven Central for Scala 2.12, 2.13, and 3. Java 11+ is required.
 
-For the default JDK-based implementation, add the following dependency:
+For the **default JDK-based implementation**, add the following dependency:
 
-`"ca.dvgi" %% "periodic-core" % "<latest>"`
+```
+"ca.dvgi" %% "periodic-core" % "<latest>"
+```
 
-For the Pekko Streams-based implementation, use this dependency:
+For the **Pekko Streams-based implementation**, use this dependency:
 
-`"ca.dvgi" %% "periodic-pekko-stream" % "<latest>"`
+```
+"ca.dvgi" %% "periodic-pekko-stream" % "<latest>"
+```
 
 ### Dependencies
 - `periodic-core` depends only on `slf4j-api`
