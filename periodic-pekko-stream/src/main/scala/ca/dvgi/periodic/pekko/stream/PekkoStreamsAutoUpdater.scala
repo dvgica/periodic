@@ -1,4 +1,4 @@
-package ca.dvgi.periodic.pekko
+package ca.dvgi.periodic.pekko.stream
 
 import ca.dvgi.periodic._
 import org.slf4j.Logger
@@ -15,7 +15,7 @@ import scala.util.Success
 import scala.util.Failure
 import scala.util.Try
 
-/** An AutoUpdater based on Pekko.
+/** An AutoUpdater based on Pekko Streams.
   *
   * Recommended when Pekko is already in use, since it is completely non-blocking, does not require
   * additional resources, and will scale to many AutoUpdatingVars without any tuning.
@@ -26,10 +26,10 @@ import scala.util.Try
   * @param actorSystem
   *   An ActorSystem used to update the var.
   */
-class PekkoAutoUpdater[T](blockUntilReadyTimeout: Option[Duration] = None)(implicit
+class PekkoStreamsAutoUpdater[T](blockUntilReadyTimeout: Option[Duration] = None)(implicit
     actorSystem: ActorSystem
 ) extends AutoUpdater[Future, Future, T] {
-  import PekkoAutoUpdater._
+  import PekkoStreamsAutoUpdater._
 
   implicit private val ec: ExecutionContext = actorSystem.dispatcher
 
@@ -92,7 +92,8 @@ class PekkoAutoUpdater[T](blockUntilReadyTimeout: Option[Duration] = None)(impli
       case UpdateAttemptStrategy.Infinite(_) =>
         -1 // signifies infinite attempts to recoverWithRetries
       case s: UpdateAttemptStrategy.Finite =>
-        s.maxAttempts
+        // maxAttempts required to be > 0
+        s.maxAttempts - 1
     }
 
     val varUpdate = buildVarSource(nextUpdate)
@@ -152,6 +153,10 @@ class PekkoAutoUpdater[T](blockUntilReadyTimeout: Option[Duration] = None)(impli
   }
 }
 
-object PekkoAutoUpdater {
+object PekkoStreamsAutoUpdater {
+  def apply[T](blockUntilReadyTimeout: Option[Duration] = None)(implicit
+      actorSystem: ActorSystem
+  ): PekkoStreamsAutoUpdater[T] = new PekkoStreamsAutoUpdater(blockUntilReadyTimeout)
+
   private case class UpdateException(cause: Throwable) extends RuntimeException
 }

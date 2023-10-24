@@ -25,13 +25,13 @@ For the default JDK-based implementation, add the following dependency:
 
 `"ca.dvgi" %% "periodic-core" % "<latest>"`
 
-For the Pekko-based implementation, use this dependency:
+For the Pekko Streams-based implementation, use this dependency:
 
-`"ca.dvgi" %% "periodic-pekko" % "<latest>"`
+`"ca.dvgi" %% "periodic-pekko-stream" % "<latest>"`
 
 ### Dependencies
 - `periodic-core` depends only on `slf4j-api`
-- `periodic-pekko` depends on `pekko-stream` and `periodic-core`
+- `periodic-pekko-stream` depends on `pekko-stream` and `periodic-core`
 
 ## Usage Example
 
@@ -80,21 +80,25 @@ For handling errors during update, and other options, see the Scaladocs.
 
 ### Alternate Implementations
 
-#### Pekko
+#### Pekko Streams
 
-The Pekko implementation is completely non-blocking, does not need additional resources besides an `ActorSystem`, and will scale to many `AutoUpdatingVar`s without requiring tuning. 
+The Pekko Streams implementation is completely non-blocking, does not need additional resources besides an `ActorSystem`, and will scale to many `AutoUpdatingVar`s without requiring tuning. 
 It is recommended if you are already using Pekko.
 
 ``` scala
 import org.apache.pekko.actor.ActorSystem
-import ca.dvgi.periodic.pekko.PekkoAutoUpdater
+import ca.dvgi.periodic.pekko.stream.PekkoStreamsAutoUpdater
+import ca.dvgi.periodic._
+import scala.concurrent.duration._
+import scala.concurrent.Future
+import java.time.Instant
 
 def updateData(): Future[String] = Future.successful(Instant.now.toString)
 
 implicit val actorSystem = ActorSystem() // generally you should have an ActorSystem in your process already
 
 val data = AutoUpdatingVar(
-  PekkoAutoUpdater[String]() // T must be explicitly provided, it can't be inferred
+  PekkoStreamsAutoUpdater[String]() // T must be explicitly provided, it can't be inferred
 )(
   updateData(),
   UpdateInterval.Static(1.second),
