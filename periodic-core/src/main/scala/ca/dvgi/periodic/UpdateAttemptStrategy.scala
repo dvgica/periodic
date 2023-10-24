@@ -18,6 +18,8 @@ object UpdateAttemptStrategy {
       attemptExhaustionBehavior: UpdateAttemptExhaustionBehavior =
         UpdateAttemptExhaustionBehavior.Terminate()
   ) extends UpdateAttemptStrategy {
+    require(maxAttempts > 0)
+
     val description =
       s"Attempt update a maximum of $maxAttempts times every $attemptInterval; when attempts are exhausted: ${attemptExhaustionBehavior.description}"
   }

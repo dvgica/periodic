@@ -33,7 +33,10 @@ def subproject(name: String) = {
   ).settings(
     scalaVersion := scala213Version,
     crossScalaVersions := scalaVersions,
-    libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
+    libraryDependencies ++= Seq(
+      "org.scalameta" %% "munit" % Versions.Munit % Test,
+      "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
+    ),
     sonatypeCredentialHost := "s01.oss.sonatype.org",
     sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
   )
@@ -42,16 +45,23 @@ def subproject(name: String) = {
 lazy val core = subproject("core")
   .settings(
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-api" % "2.0.9",
-      "org.scalameta" %% "munit" % "0.7.29" % Test,
-      "org.slf4j" % "slf4j-simple" % "2.0.9" % Test
+      "org.slf4j" % "slf4j-api" % Versions.Slf4j
+    )
+  )
+
+lazy val pekkoStream = subproject("pekko-stream")
+  .dependsOn(core % "test->test;compile->compile")
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.apache.pekko" %% "pekko-stream" % Versions.Pekko
     )
   )
 
 lazy val root = project
   .in(file("."))
   .aggregate(
-    core
+    core,
+    pekkoStream
   )
   .settings(
     publish / skip := true,
