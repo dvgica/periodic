@@ -13,7 +13,6 @@ import org.slf4j.Logger
 import scala.util.Success
 import scala.util.Failure
 import scala.concurrent.Await
-import java.util.concurrent.ScheduledFuture
 
 /** An AutoUpdater based on the JDK's ScheduledExecutorService.
   *
@@ -31,15 +30,15 @@ abstract class JdkAutoUpdater[U[T], T](
     executorOverride: Option[ScheduledExecutorService] = None
 ) extends AutoUpdater[U, Future, T] {
 
+  protected def evalUpdate[A](ua: U[A]): A
+
+  protected def pureUpdate[A](a: A): U[A]
+
   private val executor = executorOverride.getOrElse(Executors.newScheduledThreadPool(1))
 
-  private case object CloseLock
-
-  @volatile private var closed = false
+  private val periodic = new JdkPeriodic[U, T]("var update", evalUpdate(_), executor)
 
   @volatile private var variable: Option[T] = None
-
-  @volatile private var nextTask: Option[ScheduledFuture[_]] = None
 
   override def start(
       log: Logger,
@@ -70,10 +69,19 @@ abstract class JdkAutoUpdater[U[T], T](
               variable = Some(value)
               ready.complete(Success(()))
               log.info("Successfully initialized")
-              scheduleUpdate(updateInterval.duration(value))(
+              periodic.start(
                 log,
-                updateVar,
-                updateInterval,
+                updateInterval.duration(value),
+                () => {
+                  val ut = updateVar()
+                  val t = evalUpdate(ut)
+                  variable = Some(t)
+                  ut
+                },
+                ut => {
+                  val t = evalUpdate(ut)
+                  pureUpdate(updateInterval.duration(t))
+                },
                 updateAttemptStrategy
               )
             case Failure(e) =>
@@ -98,89 +106,9 @@ abstract class JdkAutoUpdater[U[T], T](
   override def latest: Option[T] = variable
 
   override def close(): Unit = {
-    CloseLock.synchronized {
-      closed = true
-      nextTask.foreach(_.cancel(true))
-    }
+    periodic.close()
     if (executorOverride.isEmpty) {
       val _ = executor.shutdownNow()
-    }
-    ()
-  }
-
-  protected def evalUpdate(ut: U[T]): T
-
-  private def scheduleUpdate(nextUpdate: FiniteDuration)(implicit
-      log: Logger,
-      updateVar: () => U[T],
-      updateInterval: UpdateInterval[T],
-      updateAttemptStrategy: UpdateAttemptStrategy
-  ): Unit = {
-    log.info(s"Scheduling update of var in: $nextUpdate")
-
-    CloseLock.synchronized {
-      if (!closed)
-        nextTask = Some(
-          executor.schedule(
-            new UpdateVar(1),
-            nextUpdate.length,
-            nextUpdate.unit
-          )
-        )
-    }
-    ()
-  }
-
-  private class UpdateVar(attempt: Int)(implicit
-      log: Logger,
-      updateVar: () => U[T],
-      updateInterval: UpdateInterval[T],
-      updateAttemptStrategy: UpdateAttemptStrategy
-  ) extends Runnable {
-    def run(): Unit = {
-      log.info("Attempting var update...")
-      try {
-        val newV = evalUpdate(updateVar())
-        variable = Some(newV)
-        log.info("Successfully updated")
-        scheduleUpdate(updateInterval.duration(newV))
-      } catch {
-        case NonFatal(e) =>
-          updateAttemptStrategy match {
-            case UpdateAttemptStrategy.Infinite(attemptInterval) =>
-              reattempt(e, attemptInterval)
-            case UpdateAttemptStrategy.Finite(attemptInterval, maxAttempts, _)
-                if attempt < maxAttempts =>
-              reattempt(e, attemptInterval)
-            case UpdateAttemptStrategy.Finite(_, _, attemptExhaustionBehavior) =>
-              log.error("Var update attempts exhausted! Final attempt exception", e)
-              attemptExhaustionBehavior.run(log)
-          }
-      }
-    }
-
-    private def reattempt(e: Throwable, delay: FiniteDuration)(implicit
-        log: Logger,
-        updateVar: () => U[T],
-        updateInterval: UpdateInterval[T],
-        updateAttemptStrategy: UpdateAttemptStrategy
-    ): Unit = {
-      log.warn(
-        s"Unhandled exception when trying to update var, retrying in $delay",
-        e
-      )
-
-      CloseLock.synchronized {
-        if (!closed)
-          nextTask = Some(
-            executor.schedule(
-              new UpdateVar(attempt + 1),
-              delay.length,
-              delay.unit
-            )
-          )
-      }
-      ()
     }
   }
 }

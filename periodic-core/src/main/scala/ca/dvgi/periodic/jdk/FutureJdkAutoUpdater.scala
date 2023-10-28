@@ -9,7 +9,9 @@ class FutureJdkAutoUpdater[T](
     blockUntilReadyTimeout: Option[Duration] = None,
     executorOverride: Option[ScheduledExecutorService] = None
 ) extends JdkAutoUpdater[Future, T](blockUntilReadyTimeout, executorOverride) {
-  override protected def evalUpdate(ut: Future[T]): T = Await.result(ut, Duration.Inf)
+  override protected def evalUpdate[A](ua: Future[A]): A = Await.result(ua, Duration.Inf)
+
+  override protected def pureUpdate[A](a: A): Future[A] = Future.successful(a)
 }
 
 object FutureJdkAutoUpdater {
