@@ -7,12 +7,22 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledExecutorService
 import scala.util.control.NonFatal
 import org.slf4j.Logger
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.util.Success
+import scala.util.Failure
+import java.util.concurrent.TimeUnit
+import scala.util.Try
+import java.util.concurrent.Executors
+import scala.concurrent.duration.Duration
+import scala.concurrent.Await
 
 class JdkPeriodic[F[_], T](
-    operationName: String,
-    evalF: F[FiniteDuration] => FiniteDuration,
-    executor: ScheduledExecutorService
-) extends Periodic[F, T] {
+    executorOverride: Option[ScheduledExecutorService] = None
+)(implicit evalF: Evaluator[F])
+    extends Periodic[F, Future, T] {
+
+  private val executor = executorOverride.getOrElse(Executors.newScheduledThreadPool(1))
 
   private case object CloseLock
 
@@ -20,20 +30,76 @@ class JdkPeriodic[F[_], T](
 
   @volatile private var nextTask: Option[ScheduledFuture[_]] = None
 
-  override def start(
+  def scheduleNow(
       log: Logger,
-      initialDelay: FiniteDuration,
+      operationName: String,
       fn: () => F[T],
-      interval: F[T] => F[FiniteDuration],
-      attemptStrategy: UpdateAttemptStrategy
-  ): Unit = {
-    scheduleUpdate(initialDelay)(log, fn, interval, attemptStrategy)
+      onSuccess: T => Unit,
+      handleError: PartialFunction[Throwable, F[T]],
+      blockUntilCompleteTimeout: Option[Duration] = None
+  ): Future[Unit] = {
+    val ready = Promise[Unit]()
+
+    executor.schedule(
+      new Runnable {
+        def run(): Unit = {
+          val tryFn =
+            Try(try {
+              try {
+                log.info(s"Attempting to $operationName...")
+                evalF(fn())
+              } catch {
+                case NonFatal(e) =>
+                  log.error(s"Failed to $operationName", e)
+                  throw e
+              }
+            } catch {
+              case NonFatal(t) =>
+                evalF(handleError.applyOrElse(t, (t: Throwable) => throw t))
+            })
+
+          tryFn match {
+            case Success(value) =>
+              onSuccess(value)
+              ready.complete(Success(()))
+              log.info(s"Successfully completed $operationName")
+            case Failure(e) =>
+              ready.complete(Failure(e))
+          }
+        }
+      },
+      0,
+      TimeUnit.NANOSECONDS
+    )
+
+    blockUntilCompleteTimeout match {
+      case Some(timeout) =>
+        Try(Await.result(ready.future, timeout)) match {
+          case Success(_)         => Future.successful(())
+          case Failure(exception) => throw exception
+        }
+      case None => ready.future
+    }
   }
 
-  private def scheduleUpdate(nextUpdate: FiniteDuration)(implicit
+  override def scheduleRecurring(
       log: Logger,
+      operationName: String,
+      initialDelay: FiniteDuration,
       fn: () => F[T],
-      interval: F[T] => F[FiniteDuration],
+      onSuccess: T => Unit,
+      interval: T => FiniteDuration,
+      attemptStrategy: UpdateAttemptStrategy
+  ): Unit = {
+    scheduleNext(initialDelay)(log, operationName, fn, onSuccess, interval, attemptStrategy)
+  }
+
+  private def scheduleNext(nextUpdate: FiniteDuration)(implicit
+      log: Logger,
+      operationName: String,
+      fn: () => F[T],
+      onSuccess: T => Unit,
+      interval: T => FiniteDuration,
       attemptStrategy: UpdateAttemptStrategy
   ): Unit = {
     CloseLock.synchronized {
@@ -51,16 +117,19 @@ class JdkPeriodic[F[_], T](
 
   private class FnRunnable(attempt: Int)(implicit
       log: Logger,
+      operationName: String,
       fn: () => F[T],
-      interval: F[T] => F[FiniteDuration],
+      onSuccess: T => Unit,
+      interval: T => FiniteDuration,
       attemptStrategy: UpdateAttemptStrategy
   ) extends Runnable {
     def run(): Unit = {
       try {
         log.info(s"Attempting $operationName...")
-        val result = fn()
+        val result = evalF(fn())
         log.info(s"Successfully executed $operationName")
-        scheduleUpdate(evalF(interval(result)))
+        onSuccess(result)
+        scheduleNext(interval(result))
       } catch {
         case NonFatal(e) =>
           attemptStrategy match {
@@ -82,7 +151,8 @@ class JdkPeriodic[F[_], T](
     private def reattempt(e: Throwable, delay: FiniteDuration)(implicit
         log: Logger,
         fn: () => F[T],
-        interval: F[T] => F[FiniteDuration],
+        onSuccess: T => Unit,
+        interval: T => FiniteDuration,
         attemptStrategy: UpdateAttemptStrategy
     ): Unit = {
       log.warn(
@@ -108,7 +178,18 @@ class JdkPeriodic[F[_], T](
     CloseLock.synchronized {
       closed = true
       nextTask.foreach(_.cancel(true))
+      if (executorOverride.isEmpty) {
+        val _ = executor.shutdownNow()
+      }
     }
     ()
+  }
+}
+
+object JdkPeriodic {
+  def apply[F[_], T](
+      executorOverride: Option[ScheduledExecutorService] = None
+  )(implicit evalF: Evaluator[F]): JdkPeriodic[F, T] = {
+    new JdkPeriodic[F, T](executorOverride)
   }
 }

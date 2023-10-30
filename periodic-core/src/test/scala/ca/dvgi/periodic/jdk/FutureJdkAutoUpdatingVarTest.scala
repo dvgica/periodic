@@ -7,16 +7,16 @@ import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.Await
 import scala.concurrent.Future
 
-class FutureJdkAutoUpdaterTest extends AutoUpdaterTestsFuture[Future] {
+class FutureJdkAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Future] {
   implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   def evalU[T](ut: Future[T]): T = Await.result(ut, Duration.Inf)
 
   def pureU(thunk: => Int): Future[Int] = Future(thunk)
 
-  def autoUpdaterBuilder() = new FutureJdkAutoUpdater[Int](_, None)
+  def periodicBuilder() = new JdkPeriodic[Future, Int]()
 
-  testAll(autoUpdaterBuilder())
+  testAll(periodicBuilder)
 
   FunFixture(
     _ => {
@@ -24,11 +24,12 @@ class FutureJdkAutoUpdaterTest extends AutoUpdaterTestsFuture[Future] {
       val ses = Executors.newScheduledThreadPool(1)
       val v =
         new AutoUpdatingVar(
-          new FutureJdkAutoUpdater[Int](Some(1.second), executorOverride = Some(ses))
+          JdkPeriodic[Future, Int](Some(ses))
         )(
           holder.get,
           UpdateInterval.Static(2.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          UpdateAttemptStrategy.Infinite(1.second),
+          Some(1.second)
         )
       (v, holder, ses)
     },

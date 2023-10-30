@@ -5,27 +5,28 @@ import scala.concurrent.duration._
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 
-class IdentityJdkAutoUpdaterTest extends AutoUpdaterTestsFuture[Identity] {
+class IdentityJdkAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Identity] {
 
   def evalU[T](ut: Identity[T]): T = ut
 
   def pureU(thunk: => Int): Identity[Int] = thunk
 
-  def autoUpdaterBuilder() = new IdentityJdkAutoUpdater[Int](_, None)
+  def periodicBuilder() = new JdkPeriodic[Identity, Int]
 
-  testAll(autoUpdaterBuilder())
+  testAll(periodicBuilder)
 
   FunFixture(
     _ => {
       val holder = new VarHolder
       val ses = Executors.newScheduledThreadPool(1)
       val v =
-        new AutoUpdatingVar(
-          new IdentityJdkAutoUpdater[Int](Some(1.second), executorOverride = Some(ses))
+        AutoUpdatingVar(
+          JdkPeriodic[Identity, Int](Some(ses))
         )(
           holder.get,
           UpdateInterval.Static(2.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          UpdateAttemptStrategy.Infinite(1.second),
+          Some(1.second)
         )
       (v, holder, ses)
     },
