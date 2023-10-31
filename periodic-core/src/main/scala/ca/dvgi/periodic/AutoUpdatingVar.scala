@@ -21,6 +21,8 @@ import java.util.concurrent.ScheduledExecutorService
   * A successful update schedules the next update, with an interval that can vary based on the
   * just-updated var.
   *
+  * @param periodic
+  *   A Periodic instance used to update the var
   * @param updateVar
   *   A thunk to initialize and update the var
   * @param updateInterval

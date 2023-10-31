@@ -9,7 +9,7 @@ sealed trait AttemptStrategy {
 
 object AttemptStrategy {
   case class Infinite(attemptInterval: FiniteDuration) extends AttemptStrategy {
-    val description = s"Attempt update indefinitely every $attemptInterval"
+    val description = s"Attempt retries indefinitely every $attemptInterval"
   }
 
   case class Finite(
@@ -20,6 +20,6 @@ object AttemptStrategy {
     require(maxAttempts > 0)
 
     val description =
-      s"Attempt update a maximum of $maxAttempts times every $attemptInterval; when attempts are exhausted: ${attemptExhaustionBehavior.description}"
+      s"Attempt a maximum of $maxAttempts times every $attemptInterval; when attempts are exhausted: ${attemptExhaustionBehavior.description}"
   }
 }

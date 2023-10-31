@@ -4,6 +4,7 @@
 Periodic is a low-dependency Scala library providing:
 
 - an in-memory cached variable (`AutoUpdatingVar`) that self-updates on a periodic basis
+- a periodic runner for a side-effecting function (`FnRunner`)
 
 It attempts to provide an effect- and runtime-agnostic API which can abstract various implementations as needed.
 
@@ -23,6 +24,12 @@ It is fairly common to need to do something periodically, while a process is run
 - caching data that changes irregularly and occasionally, such as a list of a country's airports and their codes
 
 For data that changes irregularly but must be up-to-date, you likely want to be subscribing to some kind of change event instead.
+
+### `FnRunner`
+`FnRunner` is useful when you want to do something periodically, but don't need to make any data available. Concrete use cases include:
+
+- deleting old records in a database
+- triggering calls to an external service
 
 ## Installation
 
@@ -128,8 +135,24 @@ val data = AutoUpdatingVar(
   UpdateInterval.Static(1.second),
   AttemptStrategy.Infinite(5.seconds)
 )
+
 ```
 
+### `FnRunner`
+
+``` scala
+import ca.dvgi.periodic._
+import scala.concurrent.duration._
+import java.time.Instant
+
+def doSomething(): FiniteDuration = {
+  println(s"the time is: ${Instant.now.toString}")
+  10.seconds
+}
+
+// alternately use FnRunner.jdkFuture or FnRunner.apply
+val runner = FnRunner.jdk(doSomething, AttemptStrategy.Infinite(1.second), "time printer")
+```
 ## Contributing 
 
 Contributions in the form of Issues and PRs are welcome.
