@@ -91,7 +91,7 @@ val data = AutoUpdatingVar.jdk( // or AutoUpdatingVar.jdkFuture if updateData re
   AttemptStrategy.Infinite(5.seconds), 
 )
 
-// `ready` returns a `Future[Unit]` which completes when the initial data initialization is complete
+// `ready` returns a `Future[Unit]` which completes when the data initialization is complete
 // see also the `blockUntilReadyTimeout` parameter
 Await.result(data.ready, 5.seconds)
 
@@ -128,7 +128,8 @@ import java.time.Instant
 
 def updateData(): Future[String] = Future.successful(Instant.now.toString)
 
-implicit val actorSystem = ActorSystem() // generally you should have an ActorSystem in your process already
+// generally you should have an ActorSystem in your process already
+implicit val actorSystem = ActorSystem() 
 
 val data = AutoUpdatingVar(
   PekkoStreamsPeriodic() // can also be shared by many AutoUpdatingVars or FnRunners
