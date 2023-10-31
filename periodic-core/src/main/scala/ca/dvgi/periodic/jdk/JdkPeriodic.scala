@@ -1,7 +1,7 @@
 package ca.dvgi.periodic.jdk
 
 import scala.concurrent.duration.FiniteDuration
-import ca.dvgi.periodic.UpdateAttemptStrategy
+import ca.dvgi.periodic.AttemptStrategy
 import ca.dvgi.periodic.Periodic
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledExecutorService
@@ -19,7 +19,7 @@ import scala.concurrent.Await
 
 class JdkPeriodic[F[_], T](
     executorOverride: Option[ScheduledExecutorService] = None
-)(implicit evalF: Evaluator[F])
+)(implicit evalF: Eval[F])
     extends Periodic[F, Future, T] {
 
   private val executor = executorOverride.getOrElse(Executors.newScheduledThreadPool(1))
@@ -99,7 +99,7 @@ class JdkPeriodic[F[_], T](
       fn: () => F[T],
       onSuccess: T => Unit,
       interval: T => FiniteDuration,
-      attemptStrategy: UpdateAttemptStrategy
+      attemptStrategy: AttemptStrategy
   ): Unit = {
     scheduleNext(initialDelay)(log, operationName, fn, onSuccess, interval, attemptStrategy)
   }
@@ -122,7 +122,7 @@ class JdkPeriodic[F[_], T](
       fn: () => F[T],
       onSuccess: T => Unit,
       interval: T => FiniteDuration,
-      attemptStrategy: UpdateAttemptStrategy
+      attemptStrategy: AttemptStrategy
   ): Unit = {
     CloseLock.synchronized {
       if (!closed) {
@@ -146,7 +146,7 @@ class JdkPeriodic[F[_], T](
       fn: () => F[T],
       onSuccess: T => Unit,
       interval: T => FiniteDuration,
-      attemptStrategy: UpdateAttemptStrategy
+      attemptStrategy: AttemptStrategy
   ) extends Runnable {
     def run(): Unit = {
       try {
@@ -158,12 +158,11 @@ class JdkPeriodic[F[_], T](
       } catch {
         case NonFatal(e) =>
           attemptStrategy match {
-            case UpdateAttemptStrategy.Infinite(attemptInterval) =>
+            case AttemptStrategy.Infinite(attemptInterval) =>
               reattempt(e, attemptInterval)
-            case UpdateAttemptStrategy.Finite(attemptInterval, maxAttempts, _)
-                if attempt < maxAttempts =>
+            case AttemptStrategy.Finite(attemptInterval, maxAttempts, _) if attempt < maxAttempts =>
               reattempt(e, attemptInterval)
-            case UpdateAttemptStrategy.Finite(_, _, attemptExhaustionBehavior) =>
+            case AttemptStrategy.Finite(_, _, attemptExhaustionBehavior) =>
               log.error(
                 s"${operationName.capitalize} attempts exhausted! Final attempt exception",
                 e
@@ -178,10 +177,10 @@ class JdkPeriodic[F[_], T](
         fn: () => F[T],
         onSuccess: T => Unit,
         interval: T => FiniteDuration,
-        attemptStrategy: UpdateAttemptStrategy
+        attemptStrategy: AttemptStrategy
     ): Unit = {
       log.warn(
-        s"Unhandled exception when trying to $operationName, retrying in $delay",
+        s"Unhandled exception during $operationName, retrying in $delay",
         e
       )
 
@@ -203,7 +202,7 @@ class JdkPeriodic[F[_], T](
 object JdkPeriodic {
   def apply[F[_], T](
       executorOverride: Option[ScheduledExecutorService] = None
-  )(implicit evalF: Evaluator[F]): JdkPeriodic[F, T] = {
+  )(implicit evalF: Eval[F]): JdkPeriodic[F, T] = {
     new JdkPeriodic[F, T](executorOverride)
   }
 }

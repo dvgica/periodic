@@ -2,22 +2,21 @@ package ca.dvgi.periodic
 
 import scala.concurrent.duration.FiniteDuration
 
-sealed trait UpdateAttemptStrategy {
+sealed trait AttemptStrategy {
   def attemptInterval: FiniteDuration
   def description: String
 }
 
-object UpdateAttemptStrategy {
-  case class Infinite(attemptInterval: FiniteDuration) extends UpdateAttemptStrategy {
+object AttemptStrategy {
+  case class Infinite(attemptInterval: FiniteDuration) extends AttemptStrategy {
     val description = s"Attempt update indefinitely every $attemptInterval"
   }
 
   case class Finite(
       attemptInterval: FiniteDuration,
       maxAttempts: Int,
-      attemptExhaustionBehavior: UpdateAttemptExhaustionBehavior =
-        UpdateAttemptExhaustionBehavior.Terminate()
-  ) extends UpdateAttemptStrategy {
+      attemptExhaustionBehavior: AttemptExhaustionBehavior = AttemptExhaustionBehavior.Terminate()
+  ) extends AttemptStrategy {
     require(maxAttempts > 0)
 
     val description =

@@ -73,7 +73,7 @@ class PekkoStreamsPeriodic[T](implicit
       fn: () => Future[T],
       onSuccess: T => Unit,
       interval: T => FiniteDuration,
-      attemptStrategy: UpdateAttemptStrategy
+      attemptStrategy: AttemptStrategy
   ): Unit = {
     scheduleNext(initialDelay)(log, operationName, fn, onSuccess, interval, attemptStrategy)
   }
@@ -88,14 +88,14 @@ class PekkoStreamsPeriodic[T](implicit
       fn: () => Future[T],
       onSuccess: T => Unit,
       interval: T => FiniteDuration,
-      attemptStrategy: UpdateAttemptStrategy
+      attemptStrategy: AttemptStrategy
   ): Unit = {
     log.info(s"Scheduling next $operationName in: $delay")
 
     val maxAttempts = attemptStrategy match {
-      case UpdateAttemptStrategy.Infinite(_) =>
+      case AttemptStrategy.Infinite(_) =>
         -1 // signifies infinite attempts to recoverWithRetries
-      case s: UpdateAttemptStrategy.Finite =>
+      case s: AttemptStrategy.Finite =>
         // maxAttempts required to be > 0
         s.maxAttempts - 1
     }
@@ -105,7 +105,7 @@ class PekkoStreamsPeriodic[T](implicit
         attempts = maxAttempts,
         { case e: RunFnException =>
           log.warn(
-            s"Unhandled exception when trying to $operationName, retrying in ${attemptStrategy.attemptInterval}",
+            s"Unhandled exception during $operationName, retrying in ${attemptStrategy.attemptInterval}",
             e.cause
           )
           buildRunFnSource(attemptStrategy.attemptInterval)
@@ -127,17 +127,17 @@ class PekkoStreamsPeriodic[T](implicit
             e.cause
           )
           attemptStrategy match {
-            case s: UpdateAttemptStrategy.Finite => s.attemptExhaustionBehavior.run(log)
-            case _                               =>
+            case s: AttemptStrategy.Finite => s.attemptExhaustionBehavior.run(log)
+            case _                         =>
               // should never happen
               log.error(
                 "Somehow exhausted infinite attempts! Something is very wrong. Attempting to exit..."
               )
-              UpdateAttemptExhaustionBehavior.Terminate().run(log)
+              AttemptExhaustionBehavior.Terminate().run(log)
           }
         case e =>
           log.error(s"Unhandled library exception, attempting to exit...", e)
-          UpdateAttemptExhaustionBehavior.Terminate().run(log)
+          AttemptExhaustionBehavior.Terminate().run(log)
       }
   }
 

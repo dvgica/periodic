@@ -28,7 +28,7 @@ class FutureJdkAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Future] {
         )(
           holder.get,
           UpdateInterval.Static(2.seconds),
-          UpdateAttemptStrategy.Infinite(1.second),
+          AttemptStrategy.Infinite(1.second),
           Some(1.second)
         )
       (v, holder, ses)

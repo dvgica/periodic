@@ -54,7 +54,7 @@ val data = AutoUpdatingVar.jdk( // or AutoUpdatingVar.jdkFuture if updateData re
   // can also be dynamic based on the last data
   UpdateInterval.Static(1.second), 
   // can also be finite with configurable behavior for attempt exhaustion
-  UpdateAttemptStrategy.Infinite(5.seconds), 
+  AttemptStrategy.Infinite(5.seconds), 
 )
 
 // `ready` returns a `Future[Unit]` which completes when the initial data initialization is complete
@@ -106,7 +106,7 @@ val data = AutoUpdatingVar(
 )(
   updateData(),
   UpdateInterval.Static(1.second),
-  UpdateAttemptStrategy.Infinite(5.seconds)
+  AttemptStrategy.Infinite(5.seconds)
 )
 ```
 

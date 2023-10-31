@@ -21,6 +21,6 @@ trait Periodic[F[_], R[_], T] extends AutoCloseable {
       fn: () => F[T],
       onSuccess: T => Unit,
       interval: T => FiniteDuration,
-      attemptStrategy: UpdateAttemptStrategy
+      attemptStrategy: AttemptStrategy
   ): Unit
 }

@@ -63,7 +63,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
         val v = new AutoUpdatingVar(periodic())(
           holder.get,
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second),
+          AttemptStrategy.Infinite(1.second),
           Some(1.second)
         )
         (v, holder)
@@ -106,7 +106,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
         val v = new AutoUpdatingVar(periodic())(
           holder.get,
           UpdateInterval.Dynamic((i: Int) => i * 1.second),
-          UpdateAttemptStrategy.Infinite(1.second),
+          AttemptStrategy.Infinite(1.second),
           Some(1.second)
         )
         (v, holder)
@@ -146,7 +146,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
         new AutoUpdatingVar(periodic())(
           pureU(throw TestException),
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second)
         )
       },
       (f: AutoCloseable) => f.close()
@@ -169,7 +169,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
             1
           },
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second)
         )
       },
       (f: AutoCloseable) => f.close()
@@ -191,7 +191,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
         new AutoUpdatingVar(periodic())(
           pureU(throw TestException),
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second),
+          AttemptStrategy.Infinite(1.second),
           Some(1.second)
         )
       }
@@ -209,7 +209,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
         new AutoUpdatingVar(periodic())(
           pureU(throw TestException),
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second),
+          AttemptStrategy.Infinite(1.second),
           Some(1.second),
           { case _ =>
             pureU(42)
@@ -237,7 +237,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
           new AutoUpdatingVar(periodic())(
             holder.get,
             UpdateInterval.Static(1.second),
-            UpdateAttemptStrategy.Infinite(1.second),
+            AttemptStrategy.Infinite(1.second),
             Some(1.second),
             { case _ =>
               pureU(42)
@@ -276,8 +276,8 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
           new AutoUpdatingVar(periodic())(
             holder.get,
             UpdateInterval.Static(1.second),
-            UpdateAttemptStrategy
-              .Finite(1.second, 2, UpdateAttemptExhaustionBehavior.Custom(_ => terminated = true)),
+            AttemptStrategy
+              .Finite(1.second, 2, AttemptExhaustionBehavior.Custom(_ => terminated = true)),
             Some(1.second),
             { case _ =>
               pureU(42)
