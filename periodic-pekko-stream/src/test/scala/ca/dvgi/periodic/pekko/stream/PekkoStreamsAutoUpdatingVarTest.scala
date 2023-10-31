@@ -25,8 +25,8 @@ class PekkoStreamsAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Future]
 
   def pureU(thunk: => Int): Future[Int] = Future(thunk)
 
-  def periodicBuilder(): () => Periodic[Future, Future, Int] =
-    () => PekkoStreamsPeriodic[Int]()
+  def periodicBuilder(): () => Periodic[Future, Future] =
+    () => PekkoStreamsPeriodic()
 
   testAll(periodicBuilder())
 }

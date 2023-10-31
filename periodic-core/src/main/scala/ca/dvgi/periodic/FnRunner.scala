@@ -22,7 +22,7 @@ import scala.concurrent.Future
   * @param initialDelay
   *   If specified, the first run of the function will be delayed this much
   */
-class FnRunner[F[_], R[_]](periodic: Periodic[F, R, FiniteDuration])(
+class FnRunner[F[_], R[_]](periodic: Periodic[F, R])(
     fn: => F[FiniteDuration],
     fnAttemptStrategy: AttemptStrategy,
     fnName: String,
@@ -33,7 +33,7 @@ class FnRunner[F[_], R[_]](periodic: Periodic[F, R, FiniteDuration])(
 
   log.info(s"Starting. ${fnAttemptStrategy.description}")
 
-  periodic.scheduleRecurring(
+  periodic.scheduleRecurring[FiniteDuration](
     log,
     fnName,
     initialDelay,
@@ -50,7 +50,7 @@ class FnRunner[F[_], R[_]](periodic: Periodic[F, R, FiniteDuration])(
 }
 
 object FnRunner {
-  def apply[F[_], R[_]](periodic: Periodic[F, R, FiniteDuration])(
+  def apply[F[_], R[_]](periodic: Periodic[F, R])(
       fn: => F[FiniteDuration],
       fnAttemptStrategy: AttemptStrategy,
       fnName: String,
@@ -63,7 +63,7 @@ object FnRunner {
       fnName: String,
       initialDelay: FiniteDuration = 0.seconds
   ): FnRunner[Identity, Future] =
-    new FnRunner(JdkPeriodic[Identity, FiniteDuration]())(
+    new FnRunner(JdkPeriodic[Identity]())(
       fn,
       fnAttemptStrategy,
       fnName,
@@ -76,7 +76,7 @@ object FnRunner {
       fnName: String,
       initialDelay: FiniteDuration = 0.seconds
   ): FnRunner[Future, Future] =
-    new FnRunner(JdkPeriodic[Future, FiniteDuration]())(
+    new FnRunner(JdkPeriodic[Future]())(
       fn,
       fnAttemptStrategy,
       fnName,

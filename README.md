@@ -59,13 +59,15 @@ All library functionality is based on implementations of `Periodic`. Therefore a
 
 #### JDK Implementation
 
-`JdkPeriodic` is the default implementation provided in `periodic-core`. It is suitable for most usages, although users with many `AutoUpdatingVar`s or `Runner`s may wish to provide a shared `ScheduledExecutorService` to them, to avoid starting many threads. The number of threads in this shared `ScheduledExecutorService` will need to be tuned based on workload. Threads in the `ScheduledExecutorService` will be blocked.
+`JdkPeriodic` is the default implementation provided in `periodic-core`, which is is suitable for many use cases. Usages of the `jdk` and `jdkFuture` methods on the `AutoUpdatingVar` and `FnRunner` companion objects create a new, non-shared `JdkPeriodic` (and thus a new thread) for each invocation. This will work well as long as the number of threads is not problematic for your application.
+
+Users with many `AutoUpdatingVar`s or `FnRunner`s may wish to share a `JdkPeriodic` between them to decrease the total number of threads used. In this case, the shared `JdkPeriodic` may need to be tuned based on workload. Specifically, users may need to provide a `ScheduledExecutorService` to the shared `JdkPeriodic` with an increased thread count (the default number of threads used by a `JdkPeriodic` is one). Threads in the `ScheduledExecutorService` will be blocked.
 
 The JDK implementation works out of the box with sync (`Identity`) or async (`scala.concurrent.Future`) update code. If usage with another effect is desired, provide a typeclass implementation of `ca.dvgi.periodic.jdk.Eval`.
 
 #### Pekko Streams Implementation
 
-The Pekko Streams implementation is completely non-blocking, does not need additional resources besides an `ActorSystem`, and will scale to many `AutoUpdatingVar`s and `Runner`s without requiring tuning. It is recommended if you are already using Pekko or don't mind the extra dependency.
+The Pekko Streams implementation is completely non-blocking and does not need additional resources besides an `ActorSystem`. A single `PekkoStreamsPeriodic` can be shared by many `AutoUpdatingVar`s and `FnRunner`s without requiring tuning. It is recommended if you are already using Pekko or don't mind the extra dependency.
 
 The Pekko Streams implementation only works with `scala.concurrent.Future`.
 
@@ -129,7 +131,7 @@ def updateData(): Future[String] = Future.successful(Instant.now.toString)
 implicit val actorSystem = ActorSystem() // generally you should have an ActorSystem in your process already
 
 val data = AutoUpdatingVar(
-  PekkoStreamsPeriodic[String]() // T must be explicitly provided, it can't be inferred
+  PekkoStreamsPeriodic() // can also be shared by many AutoUpdatingVars or FnRunners
 )(
   updateData(),
   UpdateInterval.Static(1.second),
@@ -150,7 +152,7 @@ def doSomething(): FiniteDuration = {
   10.seconds
 }
 
-// alternately use FnRunner.jdkFuture or FnRunner.apply
+// alternately use FnRunner.jdkFuture or FnRunner.apply(somePeriodic)
 val runner = FnRunner.jdk(doSomething, AttemptStrategy.Infinite(1.second), "time printer")
 ```
 ## Contributing 

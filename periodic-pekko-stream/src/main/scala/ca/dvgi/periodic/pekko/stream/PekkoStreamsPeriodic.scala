@@ -23,16 +23,16 @@ import scala.util.Try
   * @param actorSystem
   *   An ActorSystem used to execute periodic actions.
   */
-class PekkoStreamsPeriodic[T](implicit
+class PekkoStreamsPeriodic(implicit
     actorSystem: ActorSystem
-) extends Periodic[Future, Future, T] {
+) extends Periodic[Future, Future] {
   import PekkoStreamsPeriodic._
 
   implicit private val ec: ExecutionContext = actorSystem.dispatcher
 
   private val killSwitch = KillSwitches.shared("close")
 
-  override def scheduleNow(
+  override def scheduleNow[T](
       log: Logger,
       operationName: String,
       fn: () => Future[T],
@@ -66,7 +66,7 @@ class PekkoStreamsPeriodic[T](implicit
     }
   }
 
-  override def scheduleRecurring(
+  override def scheduleRecurring[T](
       log: Logger,
       operationName: String,
       initialDelay: FiniteDuration,
@@ -82,7 +82,7 @@ class PekkoStreamsPeriodic[T](implicit
     killSwitch.shutdown()
   }
 
-  private def scheduleNext(delay: FiniteDuration)(implicit
+  private def scheduleNext[T](delay: FiniteDuration)(implicit
       log: Logger,
       operationName: String,
       fn: () => Future[T],
@@ -141,7 +141,7 @@ class PekkoStreamsPeriodic[T](implicit
       }
   }
 
-  private def buildRunFnSource(delay: FiniteDuration)(implicit
+  private def buildRunFnSource[T](delay: FiniteDuration)(implicit
       log: Logger,
       operationName: String,
       fn: () => Future[T]
@@ -165,7 +165,7 @@ class PekkoStreamsPeriodic[T](implicit
 object PekkoStreamsPeriodic {
   def apply[T]()(implicit
       actorSystem: ActorSystem
-  ): PekkoStreamsPeriodic[T] = new PekkoStreamsPeriodic[T]
+  ): PekkoStreamsPeriodic = new PekkoStreamsPeriodic
 
   private case class RunFnException(cause: Throwable) extends RuntimeException
 }
