@@ -28,9 +28,11 @@ class JdkPeriodic[F[_], T](
 
   @volatile private var closed = false
 
-  @volatile private var nextTask: Option[ScheduledFuture[_]] = None
+  @volatile private var nowTask: Option[ScheduledFuture[_]] = None
 
-  def scheduleNow(
+  @volatile private var recurringTask: Option[ScheduledFuture[_]] = None
+
+  override def scheduleNow(
       log: Logger,
       operationName: String,
       fn: () => F[T],
@@ -40,37 +42,45 @@ class JdkPeriodic[F[_], T](
   ): Future[Unit] = {
     val ready = Promise[Unit]()
 
-    executor.schedule(
-      new Runnable {
-        def run(): Unit = {
-          val tryFn =
-            Try(try {
-              try {
-                log.info(s"Attempting to $operationName...")
-                evalF(fn())
-              } catch {
-                case NonFatal(e) =>
-                  log.error(s"Failed to $operationName", e)
-                  throw e
-              }
-            } catch {
-              case NonFatal(t) =>
-                evalF(handleError.applyOrElse(t, (t: Throwable) => throw t))
-            })
+    CloseLock.synchronized {
+      if (!closed) {
+        nowTask = Some(
+          executor.schedule(
+            new Runnable {
+              def run(): Unit = {
+                val tryFn =
+                  Try(try {
+                    try {
+                      log.info(s"Attempting to $operationName...")
+                      evalF(fn())
+                    } catch {
+                      case NonFatal(e) =>
+                        log.warn(s"Failed to $operationName", e)
+                        throw e
+                    }
+                  } catch {
+                    case NonFatal(t) =>
+                      evalF(handleError.applyOrElse(t, (t: Throwable) => throw t))
+                  })
 
-          tryFn match {
-            case Success(value) =>
-              onSuccess(value)
-              ready.complete(Success(()))
-              log.info(s"Successfully completed $operationName")
-            case Failure(e) =>
-              ready.complete(Failure(e))
-          }
-        }
-      },
-      0,
-      TimeUnit.NANOSECONDS
-    )
+                tryFn match {
+                  case Success(value) =>
+                    onSuccess(value)
+                    ready.complete(Success(()))
+                    log.info(s"Successfully completed $operationName")
+                  case Failure(e) =>
+                    ready.complete(Failure(e))
+                }
+              }
+            },
+            0,
+            TimeUnit.NANOSECONDS
+          )
+        )
+      } else {
+        log.warn("Can't scheduleNow because JdkPeriodic is closing")
+      }
+    }
 
     blockUntilCompleteTimeout match {
       case Some(timeout) =>
@@ -94,7 +104,19 @@ class JdkPeriodic[F[_], T](
     scheduleNext(initialDelay)(log, operationName, fn, onSuccess, interval, attemptStrategy)
   }
 
-  private def scheduleNext(nextUpdate: FiniteDuration)(implicit
+  override def close(): Unit = {
+    CloseLock.synchronized {
+      closed = true
+      nowTask.foreach(_.cancel(true))
+      recurringTask.foreach(_.cancel(true))
+      if (executorOverride.isEmpty) {
+        val _ = executor.shutdownNow()
+      }
+    }
+    ()
+  }
+
+  private def scheduleNext(delay: FiniteDuration)(implicit
       log: Logger,
       operationName: String,
       fn: () => F[T],
@@ -103,14 +125,17 @@ class JdkPeriodic[F[_], T](
       attemptStrategy: UpdateAttemptStrategy
   ): Unit = {
     CloseLock.synchronized {
-      if (!closed)
-        nextTask = Some(
+      if (!closed) {
+        log.info(s"Scheduling next $operationName in: $delay")
+
+        recurringTask = Some(
           executor.schedule(
             new FnRunnable(1),
-            nextUpdate.length,
-            nextUpdate.unit
+            delay.length,
+            delay.unit
           )
         )
+      }
     }
     ()
   }
@@ -162,7 +187,7 @@ class JdkPeriodic[F[_], T](
 
       CloseLock.synchronized {
         if (!closed)
-          nextTask = Some(
+          recurringTask = Some(
             executor.schedule(
               new FnRunnable(attempt + 1),
               delay.length,
@@ -172,17 +197,6 @@ class JdkPeriodic[F[_], T](
       }
       ()
     }
-  }
-
-  override def close(): Unit = {
-    CloseLock.synchronized {
-      closed = true
-      nextTask.foreach(_.cancel(true))
-      if (executorOverride.isEmpty) {
-        val _ = executor.shutdownNow()
-      }
-    }
-    ()
   }
 }
 

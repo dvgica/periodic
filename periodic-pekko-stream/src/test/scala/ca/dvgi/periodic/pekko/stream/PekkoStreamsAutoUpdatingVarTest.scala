@@ -7,7 +7,7 @@ import org.apache.pekko.actor.ActorSystem
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 
-class PekkoStreamsAutoUpdaterTest extends AutoUpdaterTestsFuture[Future] {
+class PekkoStreamsAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Future] {
 
   implicit var actorSystem: ActorSystem = _
   implicit var ec: ExecutionContext = _
@@ -25,8 +25,8 @@ class PekkoStreamsAutoUpdaterTest extends AutoUpdaterTestsFuture[Future] {
 
   def pureU(thunk: => Int): Future[Int] = Future(thunk)
 
-  def autoUpdaterBuilder(): Option[Duration] => PekkoStreamsAutoUpdater[Int] =
-    new PekkoStreamsAutoUpdater[Int](_)(actorSystem)
+  def periodicBuilder(): () => Periodic[Future, Future, Int] =
+    () => PekkoStreamsPeriodic[Int]()
 
-  testAll(autoUpdaterBuilder())
+  testAll(periodicBuilder())
 }
