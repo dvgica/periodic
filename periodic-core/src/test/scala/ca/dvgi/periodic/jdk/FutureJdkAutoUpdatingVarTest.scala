@@ -4,16 +4,19 @@ import ca.dvgi.periodic._
 import scala.concurrent.duration._
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import scala.concurrent.Await
+import scala.concurrent.Future
 
-class IdentityJdkAutoUpdaterTest extends AutoUpdaterTestsFuture[Identity] {
+class FutureJdkAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Future] {
+  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
-  def evalU[T](ut: Identity[T]): T = ut
+  def evalU[T](ut: Future[T]): T = Await.result(ut, Duration.Inf)
 
-  def pureU(thunk: => Int): Identity[Int] = thunk
+  def pureU(thunk: => Int): Future[Int] = Future(thunk)
 
-  def autoUpdaterBuilder() = new IdentityJdkAutoUpdater[Int](_, None)
+  def periodicBuilder() = new JdkPeriodic[Future, Int]()
 
-  testAll(autoUpdaterBuilder())
+  testAll(periodicBuilder)
 
   FunFixture(
     _ => {
@@ -21,11 +24,12 @@ class IdentityJdkAutoUpdaterTest extends AutoUpdaterTestsFuture[Identity] {
       val ses = Executors.newScheduledThreadPool(1)
       val v =
         new AutoUpdatingVar(
-          new IdentityJdkAutoUpdater[Int](Some(1.second), executorOverride = Some(ses))
+          JdkPeriodic[Future, Int](Some(ses))
         )(
           holder.get,
           UpdateInterval.Static(2.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second),
+          Some(1.second)
         )
       (v, holder, ses)
     },
@@ -41,6 +45,6 @@ class IdentityJdkAutoUpdaterTest extends AutoUpdaterTestsFuture[Identity] {
     assert(!ses.isShutdown())
 
     Thread.sleep(5000)
-    assertEquals(holder.get, 2)
+    assertEquals(evalU(holder.get), 2)
   }
 }

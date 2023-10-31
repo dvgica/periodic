@@ -2,16 +2,16 @@ package ca.dvgi.periodic
 
 import org.slf4j.Logger
 
-sealed trait UpdateAttemptExhaustionBehavior {
+sealed trait AttemptExhaustionBehavior {
   def run: Logger => Unit
   def description: String
 }
 
-object UpdateAttemptExhaustionBehavior {
-  case class Terminate(exitCode: Int = 1) extends UpdateAttemptExhaustionBehavior {
+object AttemptExhaustionBehavior {
+  case class Terminate(exitCode: Int = 1) extends AttemptExhaustionBehavior {
     def run: Logger => Unit = log => {
       log.error(
-        s"Var update attempts exhausted, will now attempt to exit the process with exit code: $exitCode..."
+        s"Attempts exhausted, will now attempt to exit the process with exit code: $exitCode..."
       )
       sys.exit(exitCode)
     }
@@ -20,7 +20,7 @@ object UpdateAttemptExhaustionBehavior {
   }
 
   case class Custom(run: Logger => Unit, descriptionOverride: Option[String] = None)
-      extends UpdateAttemptExhaustionBehavior {
+      extends AttemptExhaustionBehavior {
     val description: String = descriptionOverride.getOrElse("Run custom logic")
   }
 }

@@ -2,9 +2,9 @@ package ca.dvgi.periodic
 
 import scala.reflect.ClassTag
 import org.slf4j.LoggerFactory
-import ca.dvgi.periodic.jdk._
 import scala.concurrent.duration.Duration
 import scala.concurrent.Future
+import ca.dvgi.periodic.jdk._
 import java.util.concurrent.ScheduledExecutorService
 
 /** A variable that updates itself. `latest` can be called from multiple threads, which are all
@@ -27,6 +27,10 @@ import java.util.concurrent.ScheduledExecutorService
   *   Configuration for the update interval
   * @param updateAttemptStrategy
   *   Configuration for retrying updates on failure
+  * @param blockUntilReadyTimeout
+  *   If specified, will cause the AutoUpdatingVar constructor to block until an initial value is
+  *   computed, or there is a timeout or failure. This means that the effect returned by `ready`
+  *   will always be complete.
   * @param handleInitializationError
   *   A PartialFunction used to recover from exceptions in the var initialization. If unspecified,
   *   the exception will fail the effect returned by `ready`.
@@ -34,10 +38,11 @@ import java.util.concurrent.ScheduledExecutorService
   *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
   *   used.
   */
-class AutoUpdatingVar[U[_], R[_], T](autoUpdater: AutoUpdater[U, R, T])(
+class AutoUpdatingVar[U[_], R[_], T](periodic: Periodic[U, R, T])(
     updateVar: => U[T],
     updateInterval: UpdateInterval[T],
-    updateAttemptStrategy: UpdateAttemptStrategy,
+    updateAttemptStrategy: AttemptStrategy,
+    blockUntilReadyTimeout: Option[Duration] = None,
     handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
     varNameOverride: Option[String] = None
 )(implicit ct: ClassTag[T])
@@ -52,12 +57,26 @@ class AutoUpdatingVar[U[_], R[_], T](autoUpdater: AutoUpdater[U, R, T])(
 
   log.info(s"Starting. ${updateAttemptStrategy.description}")
 
-  private val _ready = autoUpdater.start(
+  @volatile private var variable: Option[T] = None
+
+  private val _ready = periodic.scheduleNow(
     log,
+    "initialize var",
     () => updateVar,
-    updateInterval,
-    updateAttemptStrategy,
-    handleInitializationError
+    newV => {
+      variable = Some(newV)
+      periodic.scheduleRecurring(
+        log,
+        "update var",
+        updateInterval.duration(newV),
+        () => updateVar,
+        v => variable = Some(v),
+        v => updateInterval.duration(v),
+        updateAttemptStrategy
+      )
+    },
+    handleInitializationError,
+    blockUntilReadyTimeout
   )
 
   /** @return
@@ -75,10 +94,10 @@ class AutoUpdatingVar[U[_], R[_], T](autoUpdater: AutoUpdater[U, R, T])(
     * @throws UnreadyAutoUpdatingVarException
     *   if there is not yet a value to return
     */
-  def latest: T = autoUpdater.latest.getOrElse(throw UnreadyAutoUpdatingVarException)
+  def latest: T = variable.getOrElse(throw UnreadyAutoUpdatingVarException)
 
   override def close(): Unit = {
-    autoUpdater.close()
+    periodic.close()
     log.info(s"Shut down sucessfully")
   }
 }
@@ -88,17 +107,19 @@ object AutoUpdatingVar {
   /** @see
     *   [[ca.dvgi.periodic.AutoUpdatingVar]]
     */
-  def apply[U[_], R[_], T](autoUpdater: AutoUpdater[U, R, T])(
+  def apply[U[_], R[_], T](periodic: Periodic[U, R, T])(
       updateVar: => U[T],
       updateInterval: UpdateInterval[T],
-      updateAttemptStrategy: UpdateAttemptStrategy,
+      updateAttemptStrategy: AttemptStrategy,
+      blockUntilReadyTimeout: Option[Duration] = None,
       handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
       varNameOverride: Option[String] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[U, R, T] = {
-    new AutoUpdatingVar(autoUpdater)(
+    new AutoUpdatingVar(periodic)(
       updateVar,
       updateInterval,
       updateAttemptStrategy,
+      blockUntilReadyTimeout,
       handleInitializationError,
       varNameOverride
     )
@@ -107,25 +128,26 @@ object AutoUpdatingVar {
   /** An AutoUpdatingVar based on only the JDK.
     *
     * @see
-    *   [[ca.dvgi.periodic.jdk.JdkAutoUpdater]]
+    *   [[ca.dvgi.periodic.jdk.JdkPeriodic]]
     * @see
     *   [[ca.dvgi.periodic.AutoUpdatingVar]]
     */
   def jdk[T](
       updateVar: => T,
       updateInterval: UpdateInterval[T],
-      updateAttemptStrategy: UpdateAttemptStrategy,
+      updateAttemptStrategy: AttemptStrategy,
+      blockUntilReadyTimeout: Option[Duration] = None,
       handleInitializationError: PartialFunction[Throwable, T] = PartialFunction.empty,
       varNameOverride: Option[String] = None,
-      blockUntilReadyTimeout: Option[Duration] = None,
       executorOverride: Option[ScheduledExecutorService] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[Identity, Future, T] = {
     new AutoUpdatingVar(
-      new IdentityJdkAutoUpdater[T](blockUntilReadyTimeout, executorOverride)
+      new JdkPeriodic[Identity, T](executorOverride)
     )(
       updateVar,
       updateInterval,
       updateAttemptStrategy,
+      blockUntilReadyTimeout,
       handleInitializationError,
       varNameOverride
     )
@@ -134,25 +156,26 @@ object AutoUpdatingVar {
   /** An AutoUpdatingVar based on only the JDK, for use when `updateVar` returns a `Future`.
     *
     * @see
-    *   [[ca.dvgi.periodic.jdk.JdkAutoUpdater]]
+    *   [[ca.dvgi.periodic.jdk.JdkPeriodic]]
     * @see
     *   [[ca.dvgi.periodic.AutoUpdatingVar]]
     */
   def jdkFuture[T](
       updateVar: => Future[T],
       updateInterval: UpdateInterval[T],
-      updateAttemptStrategy: UpdateAttemptStrategy,
+      updateAttemptStrategy: AttemptStrategy,
+      blockUntilReadyTimeout: Option[Duration] = None,
       handleInitializationError: PartialFunction[Throwable, Future[T]] = PartialFunction.empty,
       varNameOverride: Option[String] = None,
-      blockUntilReadyTimeout: Option[Duration] = None,
       executorOverride: Option[ScheduledExecutorService] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[Future, Future, T] = {
     new AutoUpdatingVar(
-      new FutureJdkAutoUpdater[T](blockUntilReadyTimeout, executorOverride)
+      new JdkPeriodic[Future, T](executorOverride)
     )(
       updateVar,
       updateInterval,
       updateAttemptStrategy,
+      blockUntilReadyTimeout,
       handleInitializationError,
       varNameOverride
     )

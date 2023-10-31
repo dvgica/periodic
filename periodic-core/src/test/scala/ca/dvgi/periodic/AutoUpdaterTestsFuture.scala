@@ -6,7 +6,7 @@ import scala.concurrent.Future
 import scala.util.Success
 import scala.concurrent.Await
 
-trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
+trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
 
   case object TestException extends RuntimeException
 
@@ -31,10 +31,10 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
 
   def evalU[T](ut: U[T]): T
 
-  def testAll(autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int])(implicit
+  def testAll(periodic: () => Periodic[U, Future, Int])(implicit
       loc: munit.Location
   ): Unit = {
-    implicit val au = autoUpdater
+    implicit val per = periodic
     testBasicsWithBlocking()
 
     testAdjustsUpdateInterval()
@@ -55,15 +55,16 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testBasicsWithBlocking(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
     FunFixture(
       _ => {
         val holder = new VarHolder
-        val v = new AutoUpdatingVar(autoUpdater(Some(1.second)))(
+        val v = new AutoUpdatingVar(periodic())(
           holder.get,
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second),
+          Some(1.second)
         )
         (v, holder)
       },
@@ -96,16 +97,17 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testAdjustsUpdateInterval(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
 
     FunFixture(
       _ => {
         val holder = new VarHolder()
-        val v = new AutoUpdatingVar(autoUpdater(Some(1.second)))(
+        val v = new AutoUpdatingVar(periodic())(
           holder.get,
           UpdateInterval.Dynamic((i: Int) => i * 1.second),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second),
+          Some(1.second)
         )
         (v, holder)
       },
@@ -136,15 +138,15 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testReturnsFailedReady(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
 
     FunFixture(
       _ => {
-        new AutoUpdatingVar(autoUpdater(None))(
+        new AutoUpdatingVar(periodic())(
           pureU(throw TestException),
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second)
         )
       },
       (f: AutoCloseable) => f.close()
@@ -156,18 +158,18 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testThrowsFromLatest(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
 
     FunFixture(
       _ => {
-        new AutoUpdatingVar(autoUpdater(None))(
+        new AutoUpdatingVar(periodic())(
           pureU {
             Thread.sleep(1000)
             1
           },
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second)
         )
       },
       (f: AutoCloseable) => f.close()
@@ -179,17 +181,18 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testThrowsFromConstructor(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
 
     test(
       "returns a failed future from constructor if the first update fails and instructed to block"
     ) {
       intercept[TestException.type] {
-        new AutoUpdatingVar(autoUpdater(Some(1.second)))(
+        new AutoUpdatingVar(periodic())(
           pureU(throw TestException),
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second)
+          AttemptStrategy.Infinite(1.second),
+          Some(1.second)
         )
       }
     }
@@ -198,15 +201,16 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testHandlesInititializationErrors(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
 
     FunFixture(
       _ => {
-        new AutoUpdatingVar(autoUpdater(Some(1.second)))(
+        new AutoUpdatingVar(periodic())(
           pureU(throw TestException),
           UpdateInterval.Static(1.seconds),
-          UpdateAttemptStrategy.Infinite(1.second),
+          AttemptStrategy.Infinite(1.second),
+          Some(1.second),
           { case _ =>
             pureU(42)
           }
@@ -223,17 +227,18 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testInfiniteReattempts(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
 
     FunFixture(
       _ => {
         val holder = new VarErrorHolder
         val v =
-          new AutoUpdatingVar(autoUpdater(Some(1.second)))(
+          new AutoUpdatingVar(periodic())(
             holder.get,
             UpdateInterval.Static(1.second),
-            UpdateAttemptStrategy.Infinite(1.second),
+            AttemptStrategy.Infinite(1.second),
+            Some(1.second),
             { case _ =>
               pureU(42)
             }
@@ -260,7 +265,7 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
   def testFiniteReattempts(
   )(implicit
       loc: munit.Location,
-      autoUpdater: Option[Duration] => AutoUpdater[U, Future, Int]
+      periodic: () => Periodic[U, Future, Int]
   ): Unit = {
 
     var terminated = false
@@ -268,11 +273,12 @@ trait AutoUpdaterTestsFuture[U[_]] extends FunSuite {
       _ => {
         val holder = new VarErrorHolder
         val v =
-          new AutoUpdatingVar(autoUpdater(Some(1.second)))(
+          new AutoUpdatingVar(periodic())(
             holder.get,
             UpdateInterval.Static(1.second),
-            UpdateAttemptStrategy
-              .Finite(1.second, 2, UpdateAttemptExhaustionBehavior.Custom(_ => terminated = true)),
+            AttemptStrategy
+              .Finite(1.second, 2, AttemptExhaustionBehavior.Custom(_ => terminated = true)),
+            Some(1.second),
             { case _ =>
               pureU(42)
             }
