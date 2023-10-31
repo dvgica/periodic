@@ -21,6 +21,8 @@ import java.util.concurrent.ScheduledExecutorService
   * A successful update schedules the next update, with an interval that can vary based on the
   * just-updated var.
   *
+  * @param periodic
+  *   A Periodic instance used to update the var
   * @param updateVar
   *   A thunk to initialize and update the var
   * @param updateInterval
@@ -38,7 +40,7 @@ import java.util.concurrent.ScheduledExecutorService
   *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
   *   used.
   */
-class AutoUpdatingVar[U[_], R[_], T](periodic: Periodic[U, R, T])(
+class AutoUpdatingVar[U[_], R[_], T](periodic: Periodic[U, R])(
     updateVar: => U[T],
     updateInterval: UpdateInterval[T],
     updateAttemptStrategy: AttemptStrategy,
@@ -59,13 +61,13 @@ class AutoUpdatingVar[U[_], R[_], T](periodic: Periodic[U, R, T])(
 
   @volatile private var variable: Option[T] = None
 
-  private val _ready = periodic.scheduleNow(
+  private val _ready = periodic.scheduleNow[T](
     log,
     "initialize var",
     () => updateVar,
     newV => {
       variable = Some(newV)
-      periodic.scheduleRecurring(
+      periodic.scheduleRecurring[T](
         log,
         "update var",
         updateInterval.duration(newV),
@@ -107,7 +109,7 @@ object AutoUpdatingVar {
   /** @see
     *   [[ca.dvgi.periodic.AutoUpdatingVar]]
     */
-  def apply[U[_], R[_], T](periodic: Periodic[U, R, T])(
+  def apply[U[_], R[_], T](periodic: Periodic[U, R])(
       updateVar: => U[T],
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: AttemptStrategy,
@@ -142,7 +144,7 @@ object AutoUpdatingVar {
       executorOverride: Option[ScheduledExecutorService] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[Identity, Future, T] = {
     new AutoUpdatingVar(
-      new JdkPeriodic[Identity, T](executorOverride)
+      new JdkPeriodic[Identity](executorOverride)
     )(
       updateVar,
       updateInterval,
@@ -170,7 +172,7 @@ object AutoUpdatingVar {
       executorOverride: Option[ScheduledExecutorService] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[Future, Future, T] = {
     new AutoUpdatingVar(
-      new JdkPeriodic[Future, T](executorOverride)
+      new JdkPeriodic[Future](executorOverride)
     )(
       updateVar,
       updateInterval,

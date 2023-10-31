@@ -17,10 +17,10 @@ import java.util.concurrent.Executors
 import scala.concurrent.duration.Duration
 import scala.concurrent.Await
 
-class JdkPeriodic[F[_], T](
+class JdkPeriodic[F[_]](
     executorOverride: Option[ScheduledExecutorService] = None
 )(implicit evalF: Eval[F])
-    extends Periodic[F, Future, T] {
+    extends Periodic[F, Future] {
 
   private val executor = executorOverride.getOrElse(Executors.newScheduledThreadPool(1))
 
@@ -32,7 +32,7 @@ class JdkPeriodic[F[_], T](
 
   @volatile private var recurringTask: Option[ScheduledFuture[_]] = None
 
-  override def scheduleNow(
+  override def scheduleNow[T](
       log: Logger,
       operationName: String,
       fn: () => F[T],
@@ -92,7 +92,7 @@ class JdkPeriodic[F[_], T](
     }
   }
 
-  override def scheduleRecurring(
+  override def scheduleRecurring[T](
       log: Logger,
       operationName: String,
       initialDelay: FiniteDuration,
@@ -116,7 +116,7 @@ class JdkPeriodic[F[_], T](
     ()
   }
 
-  private def scheduleNext(delay: FiniteDuration)(implicit
+  private def scheduleNext[T](delay: FiniteDuration)(implicit
       log: Logger,
       operationName: String,
       fn: () => F[T],
@@ -140,7 +140,7 @@ class JdkPeriodic[F[_], T](
     ()
   }
 
-  private class FnRunnable(attempt: Int)(implicit
+  private class FnRunnable[T](attempt: Int)(implicit
       log: Logger,
       operationName: String,
       fn: () => F[T],
@@ -200,9 +200,9 @@ class JdkPeriodic[F[_], T](
 }
 
 object JdkPeriodic {
-  def apply[F[_], T](
+  def apply[F[_]](
       executorOverride: Option[ScheduledExecutorService] = None
-  )(implicit evalF: Eval[F]): JdkPeriodic[F, T] = {
-    new JdkPeriodic[F, T](executorOverride)
+  )(implicit evalF: Eval[F]): JdkPeriodic[F] = {
+    new JdkPeriodic[F](executorOverride)
   }
 }

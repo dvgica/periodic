@@ -4,8 +4,8 @@ import scala.concurrent.duration.FiniteDuration
 import org.slf4j.Logger
 import scala.concurrent.duration.Duration
 
-trait Periodic[F[_], R[_], T] extends AutoCloseable {
-  def scheduleNow(
+trait Periodic[F[_], R[_]] extends AutoCloseable {
+  def scheduleNow[T](
       log: Logger,
       operationName: String,
       fn: () => F[T],
@@ -14,7 +14,7 @@ trait Periodic[F[_], R[_], T] extends AutoCloseable {
       blockUntilCompleteTimeout: Option[Duration] = None
   ): R[Unit]
 
-  def scheduleRecurring(
+  def scheduleRecurring[T](
       log: Logger,
       operationName: String,
       initialDelay: FiniteDuration,

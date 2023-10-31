@@ -31,7 +31,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
 
   def evalU[T](ut: U[T]): T
 
-  def testAll(periodic: () => Periodic[U, Future, Int])(implicit
+  def testAll(periodic: () => Periodic[U, Future])(implicit
       loc: munit.Location
   ): Unit = {
     implicit val per = periodic
@@ -55,7 +55,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testBasicsWithBlocking(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
     FunFixture(
       _ => {
@@ -97,7 +97,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testAdjustsUpdateInterval(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
 
     FunFixture(
@@ -138,7 +138,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testReturnsFailedReady(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
 
     FunFixture(
@@ -158,7 +158,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testThrowsFromLatest(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
 
     FunFixture(
@@ -181,7 +181,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testThrowsFromConstructor(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
 
     test(
@@ -201,7 +201,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testHandlesInititializationErrors(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
 
     FunFixture(
@@ -227,7 +227,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testInfiniteReattempts(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
 
     FunFixture(
@@ -265,7 +265,7 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
   def testFiniteReattempts(
   )(implicit
       loc: munit.Location,
-      periodic: () => Periodic[U, Future, Int]
+      periodic: () => Periodic[U, Future]
   ): Unit = {
 
     var terminated = false

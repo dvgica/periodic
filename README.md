@@ -4,6 +4,7 @@
 Periodic is a low-dependency Scala library providing:
 
 - an in-memory cached variable (`AutoUpdatingVar`) that self-updates on a periodic basis
+- a periodic runner for a side-effecting function (`FnRunner`)
 
 It attempts to provide an effect- and runtime-agnostic API which can abstract various implementations as needed.
 
@@ -23,6 +24,12 @@ It is fairly common to need to do something periodically, while a process is run
 - caching data that changes irregularly and occasionally, such as a list of a country's airports and their codes
 
 For data that changes irregularly but must be up-to-date, you likely want to be subscribing to some kind of change event instead.
+
+### `FnRunner`
+`FnRunner` is useful when you want to do something periodically, but don't need to make any data available. Concrete use cases include:
+
+- deleting old records in a database
+- triggering calls to an external service
 
 ## Installation
 
@@ -52,13 +59,15 @@ All library functionality is based on implementations of `Periodic`. Therefore a
 
 #### JDK Implementation
 
-`JdkPeriodic` is the default implementation provided in `periodic-core`. It is suitable for most usages, although users with many `AutoUpdatingVar`s or `Runner`s may wish to provide a shared `ScheduledExecutorService` to them, to avoid starting many threads. The number of threads in this shared `ScheduledExecutorService` will need to be tuned based on workload. Threads in the `ScheduledExecutorService` will be blocked.
+`JdkPeriodic` is the default implementation provided in `periodic-core` which is suitable for many use cases. Usages of the `jdk` and `jdkFuture` methods on the `AutoUpdatingVar` and `FnRunner` companion objects create a new, non-shared `JdkPeriodic` (and thus a new thread) for each invocation. This will work well as long as the number of created threads is not problematic for your application.
 
-The JDK implementation works out of the box with sync (`Identity`) or async (`scala.concurrent.Future`) update code. If usage with another effect is desired, provide a typeclass implementation of `ca.dvgi.periodic.jdk.Eval`.
+Users with many `AutoUpdatingVar`s or `FnRunner`s may wish to share a `JdkPeriodic` between them to decrease the total number of threads used. In this case, the shared `JdkPeriodic` may need to be tuned based on workload. Specifically, users may need to provide a `ScheduledExecutorService` to the shared `JdkPeriodic` with an increased thread count (the default number of threads used by a `JdkPeriodic` is one). Threads in the `ScheduledExecutorService` will be blocked.
+
+The JDK implementation works out of the box with sync (`Identity`) or async (`scala.concurrent.Future`) functions. If usage with another effect is desired, provide a typeclass implementation of `ca.dvgi.periodic.jdk.Eval`.
 
 #### Pekko Streams Implementation
 
-The Pekko Streams implementation is completely non-blocking, does not need additional resources besides an `ActorSystem`, and will scale to many `AutoUpdatingVar`s and `Runner`s without requiring tuning. It is recommended if you are already using Pekko or don't mind the extra dependency.
+The Pekko Streams implementation is completely non-blocking and does not need additional resources besides an `ActorSystem`. A single `PekkoStreamsPeriodic` can be shared by many `AutoUpdatingVar`s and `FnRunner`s without requiring tuning. It is recommended if you are already using Pekko or don't mind the extra dependency. As usual with Pekko-based code, user-provided functions should not block.
 
 The Pekko Streams implementation only works with `scala.concurrent.Future`.
 
@@ -122,14 +131,30 @@ def updateData(): Future[String] = Future.successful(Instant.now.toString)
 implicit val actorSystem = ActorSystem() // generally you should have an ActorSystem in your process already
 
 val data = AutoUpdatingVar(
-  PekkoStreamsPeriodic[String]() // T must be explicitly provided, it can't be inferred
+  PekkoStreamsPeriodic() // can also be shared by many AutoUpdatingVars or FnRunners
 )(
   updateData(),
   UpdateInterval.Static(1.second),
   AttemptStrategy.Infinite(5.seconds)
 )
+
 ```
 
+### `FnRunner`
+
+``` scala
+import ca.dvgi.periodic._
+import scala.concurrent.duration._
+import java.time.Instant
+
+def doSomething(): FiniteDuration = {
+  println(s"the time is: ${Instant.now.toString}")
+  10.seconds
+}
+
+// alternately use FnRunner.jdkFuture or FnRunner.apply(somePeriodic)
+val runner = FnRunner.jdk(doSomething, AttemptStrategy.Infinite(1.second), "time printer")
+```
 ## Contributing 
 
 Contributions in the form of Issues and PRs are welcome.

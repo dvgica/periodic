@@ -11,7 +11,7 @@ class IdentityJdkAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Identity
 
   def pureU(thunk: => Int): Identity[Int] = thunk
 
-  def periodicBuilder() = new JdkPeriodic[Identity, Int]
+  def periodicBuilder() = new JdkPeriodic[Identity]
 
   testAll(periodicBuilder)
 
@@ -21,7 +21,7 @@ class IdentityJdkAutoUpdatingVarTest extends AutoUpdatingVarTestsFuture[Identity
       val ses = Executors.newScheduledThreadPool(1)
       val v =
         AutoUpdatingVar(
-          JdkPeriodic[Identity, Int](Some(ses))
+          JdkPeriodic[Identity](Some(ses))
         )(
           holder.get,
           UpdateInterval.Static(2.seconds),
