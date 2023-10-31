@@ -10,7 +10,7 @@ It attempts to provide an effect- and runtime-agnostic API which can abstract va
 
 - [Motivation](#motivation)
 - [Installation](#installation)
-- [Usage](#usage-example)
+- [Usage](#usage)
 - [Contributing](#contributing)
 
 ## Motivation
