@@ -37,6 +37,8 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
     implicit val per = periodic
     testBasicsWithBlocking()
 
+    testUpdateExistingVar()
+
     testAdjustsUpdateInterval()
 
     testReturnsFailedReady()
@@ -91,6 +93,39 @@ trait AutoUpdatingVarTestsFuture[U[_]] extends FunSuite {
 
         Thread.sleep(1000)
         assertEquals(evalU(holder.get), 4)
+      }
+  }
+
+  def testUpdateExistingVar(
+  )(implicit
+      loc: munit.Location,
+      periodic: () => Periodic[U, Future]
+  ): Unit = {
+    FunFixture(
+      _ => {
+        val holder = new VarHolder
+        val v = new AutoUpdatingVar(periodic())(
+          holder.get,
+          UpdateInterval.Static(1.seconds),
+          AttemptStrategy.Infinite(1.second),
+          Some(1.second),
+          updateExistingVar = Some((i: Int) => { assertEquals(i, 1); pureU(100) })
+        )
+        (v, holder)
+      },
+      (f: (AutoCloseable, VarHolder)) => f._1.close()
+    )
+      .test("uses updateExistingVar after initialization if specified") { case (v, holder) =>
+        assert(v.ready.isCompleted)
+        assertEquals(v.ready.value, Some(Success(())))
+
+        assertEquals(v.latest, 1)
+
+        Thread.sleep(1100)
+
+        assertEquals(v.latest, 100)
+
+        assertEquals(evalU(holder.get), 2)
       }
   }
 
