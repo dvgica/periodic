@@ -36,6 +36,9 @@ import java.util.concurrent.ScheduledExecutorService
   * @param handleInitializationError
   *   A PartialFunction used to recover from exceptions in the var initialization. If unspecified,
   *   the exception will fail the effect returned by `ready`.
+  * @param updateExistingVar
+  *   If specified, will be used to update the var on all updates after initialization. Allows for
+  *   the use of the current var when updating.
   * @param varNameOverride
   *   A name for this variable, used in logging. If unspecified, the simple class name of T will be
   *   used.
@@ -46,6 +49,7 @@ class AutoUpdatingVar[U[_], R[_], T](periodic: Periodic[U, R])(
     updateAttemptStrategy: AttemptStrategy,
     blockUntilReadyTimeout: Option[Duration] = None,
     handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
+    updateExistingVar: Option[T => U[T]] = None,
     varNameOverride: Option[String] = None
 )(implicit ct: ClassTag[T])
     extends AutoCloseable {
@@ -71,7 +75,10 @@ class AutoUpdatingVar[U[_], R[_], T](periodic: Periodic[U, R])(
         log,
         "update var",
         updateInterval.duration(newV),
-        () => updateVar,
+        updateExistingVar match {
+          case Some(u) => () => u(variable.get) // will always be set at this point
+          case None    => () => updateVar
+        },
         v => variable = Some(v),
         v => updateInterval.duration(v),
         updateAttemptStrategy
@@ -115,6 +122,7 @@ object AutoUpdatingVar {
       updateAttemptStrategy: AttemptStrategy,
       blockUntilReadyTimeout: Option[Duration] = None,
       handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
+      updateExistingVar: Option[T => U[T]] = None,
       varNameOverride: Option[String] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[U, R, T] = {
     new AutoUpdatingVar(periodic)(
@@ -123,6 +131,7 @@ object AutoUpdatingVar {
       updateAttemptStrategy,
       blockUntilReadyTimeout,
       handleInitializationError,
+      updateExistingVar,
       varNameOverride
     )
   }
@@ -140,6 +149,7 @@ object AutoUpdatingVar {
       updateAttemptStrategy: AttemptStrategy,
       blockUntilReadyTimeout: Option[Duration] = None,
       handleInitializationError: PartialFunction[Throwable, T] = PartialFunction.empty,
+      updateExistingVar: Option[T => T] = None,
       varNameOverride: Option[String] = None,
       executorOverride: Option[ScheduledExecutorService] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[Identity, Future, T] = {
@@ -151,6 +161,7 @@ object AutoUpdatingVar {
       updateAttemptStrategy,
       blockUntilReadyTimeout,
       handleInitializationError,
+      updateExistingVar,
       varNameOverride
     )
   }
@@ -168,6 +179,7 @@ object AutoUpdatingVar {
       updateAttemptStrategy: AttemptStrategy,
       blockUntilReadyTimeout: Option[Duration] = None,
       handleInitializationError: PartialFunction[Throwable, Future[T]] = PartialFunction.empty,
+      updateExistingVar: Option[T => Future[T]] = None,
       varNameOverride: Option[String] = None,
       executorOverride: Option[ScheduledExecutorService] = None
   )(implicit ct: ClassTag[T]): AutoUpdatingVar[Future, Future, T] = {
@@ -179,6 +191,7 @@ object AutoUpdatingVar {
       updateAttemptStrategy,
       blockUntilReadyTimeout,
       handleInitializationError,
+      updateExistingVar,
       varNameOverride
     )
   }
