@@ -1,7 +1,6 @@
 package ca.dvgi.periodic
 
 import ca.dvgi.periodic.jdk._
-import scala.concurrent.duration.FiniteDuration
 import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.concurrent.Future
