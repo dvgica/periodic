@@ -36,9 +36,7 @@ def subproject(name: String) = {
     libraryDependencies ++= Seq(
       "org.scalameta" %% "munit" % Versions.Munit % Test,
       "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
-    ),
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+    )
   )
 }
 
@@ -65,9 +63,7 @@ lazy val root = project
   )
   .settings(
     publish / skip := true,
-    crossScalaVersions := Nil,
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+    crossScalaVersions := Nil
   )
 
 ThisBuild / crossScalaVersions := scalaVersions
