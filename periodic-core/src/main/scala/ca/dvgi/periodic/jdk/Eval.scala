@@ -1,5 +1,6 @@
 package ca.dvgi.periodic.jdk
 
+import ca.dvgi.periodic.Identity
 import scala.concurrent.Future
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration

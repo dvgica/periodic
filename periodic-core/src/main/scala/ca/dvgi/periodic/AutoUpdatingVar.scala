@@ -2,7 +2,7 @@ package ca.dvgi.periodic
 
 import scala.reflect.ClassTag
 import org.slf4j.LoggerFactory
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Future
 import ca.dvgi.periodic.jdk._
 import java.util.concurrent.ScheduledExecutorService
@@ -47,7 +47,7 @@ class AutoUpdatingVar[U[_], R[_], T](periodic: Periodic[U, R])(
     updateVar: => U[T],
     updateInterval: UpdateInterval[T],
     updateAttemptStrategy: AttemptStrategy,
-    blockUntilReadyTimeout: Option[Duration] = None,
+    blockUntilReadyTimeout: Option[FiniteDuration] = None,
     handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
     updateExistingVar: Option[T => U[T]] = None,
     varNameOverride: Option[String] = None
@@ -120,7 +120,7 @@ object AutoUpdatingVar {
       updateVar: => U[T],
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: AttemptStrategy,
-      blockUntilReadyTimeout: Option[Duration] = None,
+      blockUntilReadyTimeout: Option[FiniteDuration] = None,
       handleInitializationError: PartialFunction[Throwable, U[T]] = PartialFunction.empty,
       updateExistingVar: Option[T => U[T]] = None,
       varNameOverride: Option[String] = None
@@ -147,7 +147,7 @@ object AutoUpdatingVar {
       updateVar: => T,
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: AttemptStrategy,
-      blockUntilReadyTimeout: Option[Duration] = None,
+      blockUntilReadyTimeout: Option[FiniteDuration] = None,
       handleInitializationError: PartialFunction[Throwable, T] = PartialFunction.empty,
       updateExistingVar: Option[T => T] = None,
       varNameOverride: Option[String] = None,
@@ -177,7 +177,7 @@ object AutoUpdatingVar {
       updateVar: => Future[T],
       updateInterval: UpdateInterval[T],
       updateAttemptStrategy: AttemptStrategy,
-      blockUntilReadyTimeout: Option[Duration] = None,
+      blockUntilReadyTimeout: Option[FiniteDuration] = None,
       handleInitializationError: PartialFunction[Throwable, Future[T]] = PartialFunction.empty,
       updateExistingVar: Option[T => Future[T]] = None,
       varNameOverride: Option[String] = None,
