@@ -10,8 +10,7 @@ import scala.util.Success
 import scala.util.Failure
 import scala.util.control.NonFatal
 
-
-class OxPeriodic(using Ox) extends Periodic[Identity, Fork] {
+class OxPeriodic(implicit ox: Ox) extends Periodic[Identity, Fork] {
   def scheduleNow[T](
       log: Logger,
       operationName: String,
