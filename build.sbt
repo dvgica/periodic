@@ -1,15 +1,15 @@
 inThisBuild(
   List(
     organization := "ca.dvgi",
-    homepage := Some(url("https://github.com/dvgica/periodic")),
-    licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+    homepage := Some(uri("https://github.com/dvgica/periodic")),
+    licenses := List("Apache-2.0" -> uri("http://www.apache.org/licenses/LICENSE-2.0")),
     description := "A Scala library for self-updating vars and other periodic actions",
     developers := List(
       Developer(
         "dvgica",
         "David van Geest",
         "david.vangeest@gmail.com",
-        url("http://dvgi.ca")
+        uri("http://dvgi.ca")
       )
     )
   )
@@ -52,7 +52,12 @@ lazy val pekkoStream = subproject("pekko-stream")
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.pekko" %% "pekko-stream" % Versions.Pekko
-    )
+    ),
+    // A dispatcher shutdown outlives the test run and, once sbt has released
+    // the test class loader, reloading a pekko class violates a loader
+    // constraint and takes the build down. Forking keeps those threads out of
+    // sbt's JVM.
+    Test / fork := true
   )
 
 lazy val root = project
@@ -67,14 +72,14 @@ lazy val root = project
   )
 
 ThisBuild / crossScalaVersions := scalaVersions
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
 ThisBuild / githubWorkflowBuildPreamble := Seq(
   WorkflowStep.Sbt(
     List("scalafmtCheckAll", "scalafmtSbtCheck"),
     name = Some("Check formatting with scalafmt")
   )
 )
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
+ThisBuild / githubWorkflowTargetTags := Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches :=
   Seq(RefPredicate.StartsWith(Ref.Tag("v")))
 
@@ -89,3 +94,8 @@ ThisBuild / githubWorkflowPublish := Seq(
     )
   )
 )
+
+// sbt 2 puts targets under target/out/jvm/scala-<version>/, so the generated
+// artifact upload steps embed whichever Scala version is active. That makes
+// githubWorkflowCheck fail in every cross-build job but one.
+ThisBuild / githubWorkflowArtifactUpload := false
