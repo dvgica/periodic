@@ -63,6 +63,7 @@ lazy val ox = subproject("ox")
     crossScalaVersions := Seq(scala3Version),
     libraryDependencies ++= Seq(
       "com.softwaremill.ox" %% "core" % Versions.Ox,
+      "org.slf4j" % "slf4j-simple" % Versions.Slf4j,
       "org.scalameta" %% "munit" % Versions.Munit % Test
     )
   )
