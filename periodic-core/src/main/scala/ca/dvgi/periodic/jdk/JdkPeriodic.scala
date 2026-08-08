@@ -14,7 +14,6 @@ import scala.util.Failure
 import java.util.concurrent.TimeUnit
 import scala.util.Try
 import java.util.concurrent.Executors
-import scala.concurrent.duration.Duration
 import scala.concurrent.Await
 
 class JdkPeriodic[F[_]](
@@ -38,7 +37,7 @@ class JdkPeriodic[F[_]](
       fn: () => F[T],
       onSuccess: T => Unit,
       handleError: PartialFunction[Throwable, F[T]],
-      blockUntilCompleteTimeout: Option[Duration] = None
+      blockUntilCompleteTimeout: Option[FiniteDuration] = None
   ): Future[Unit] = {
     val ready = Promise[Unit]()
 

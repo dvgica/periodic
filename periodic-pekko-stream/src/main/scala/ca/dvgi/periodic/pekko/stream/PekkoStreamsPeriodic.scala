@@ -38,7 +38,7 @@ class PekkoStreamsPeriodic(implicit
       fn: () => Future[T],
       onSuccess: T => Unit,
       handleError: PartialFunction[Throwable, Future[T]],
-      blockUntilCompleteTimeout: Option[Duration] = None
+      blockUntilCompleteTimeout: Option[FiniteDuration] = None
   ): Future[Unit] = {
     log.info(s"Attempting to $operationName...")
 

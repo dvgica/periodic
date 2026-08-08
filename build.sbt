@@ -31,10 +31,8 @@ def subproject(name: String) = {
     id = fullName,
     base = file(fullName)
   ).settings(
-    scalaVersion := scala213Version,
-    crossScalaVersions := scalaVersions,
+    scalaVersion := scala3Version,
     libraryDependencies ++= Seq(
-      "org.scalameta" %% "munit" % Versions.Munit % Test,
       "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
     )
   )
@@ -42,16 +40,20 @@ def subproject(name: String) = {
 
 lazy val core = subproject("core")
   .settings(
+    crossScalaVersions := scalaVersions,
     libraryDependencies ++= Seq(
-      "org.slf4j" % "slf4j-api" % Versions.Slf4j
+      "org.slf4j" % "slf4j-api" % Versions.Slf4j,
+      "org.scalameta" %% "munit" % Versions.Munit % Test
     )
   )
 
 lazy val pekkoStream = subproject("pekko-stream")
   .dependsOn(core % "test->test;compile->compile")
   .settings(
+    crossScalaVersions := scalaVersions,
     libraryDependencies ++= Seq(
-      "org.apache.pekko" %% "pekko-stream" % Versions.Pekko
+      "org.apache.pekko" %% "pekko-stream" % Versions.Pekko,
+      "org.scalameta" %% "munit" % Versions.Munit % Test
     ),
     // A dispatcher shutdown outlives the test run and, once sbt has released
     // the test class loader, reloading a pekko class violates a loader
@@ -60,11 +62,23 @@ lazy val pekkoStream = subproject("pekko-stream")
     Test / fork := true
   )
 
+lazy val ox = subproject("ox")
+  .dependsOn(core)
+  .settings(
+    crossScalaVersions := Seq(scala3Version),
+    libraryDependencies ++= Seq(
+      "com.softwaremill.ox" %% "core" % Versions.Ox,
+      "org.slf4j" % "slf4j-simple" % Versions.Slf4j,
+      "org.scalameta" %% "munit" % Versions.Munit % Test
+    )
+  )
+
 lazy val root = project
   .in(file("."))
   .aggregate(
     core,
-    pekkoStream
+    pekkoStream,
+    ox
   )
   .settings(
     publish / skip := true,
