@@ -54,7 +54,7 @@ lazy val pekkoStream = subproject("pekko-stream")
     libraryDependencies ++= Seq(
       "org.apache.pekko" %% "pekko-stream" % Versions.Pekko,
       "org.scalameta" %% "munit" % Versions.Munit % Test
-    )
+    ),
     // A dispatcher shutdown outlives the test run and, once sbt has released
     // the test class loader, reloading a pekko class violates a loader
     // constraint and takes the build down. Forking keeps those threads out of
