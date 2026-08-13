@@ -1,21 +1,22 @@
 queue_rules:
   - name: dependency-update
-    # Build and Test Success is a single job depending on the whole build
-    # matrix, so Mergify has one exact check to wait for. Matching the matrix
-    # legs by regex instead leaves Mergify unable to tell a not-yet-reported
-    # check from an absent one, and it dequeues while the legs are running.
+    # Every Scala version is a row of the project matrix, so the build is a
+    # single job and Mergify has one exact check to wait for. Matching the
+    # matrix legs by regex instead leaves Mergify unable to tell a
+    # not-yet-reported check from an absent one, and it dequeues while the legs
+    # are running.
     #
     # The parenthetical is the job's matrix, which sbt-github-actions always
-    # emits; "all" is a constant, so bumping crossScalaVersions does not change
-    # this name. Changing githubWorkflowJavaVersions does.
+    # emits; "all" is a constant, so adding a Scala version does not change this
+    # name. Changing githubWorkflowJavaVersions does.
     merge_conditions:
-      - check-success=Build and Test Success (ubuntu-latest, all, temurin@17)
+      - check-success=Build and Test (ubuntu-latest, all, temurin@17)
 
 pull_request_rules:
   - name: Merge using the merge queue
     conditions:
       - base=main
-      - check-success=Build and Test Success (ubuntu-latest, all, temurin@17)
+      - check-success=Build and Test (ubuntu-latest, all, temurin@17)
       - author=scala-steward
     actions:
       queue:
