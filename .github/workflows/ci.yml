@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.18, 2.12.21, 3.3.8]
+        scala: [all]
         java: [temurin@17]
     runs-on: ${{ matrix.os }}
     steps:
@@ -44,13 +44,13 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: Check formatting with scalafmt
-        run: sbt '++ ${{ matrix.scala }}; scalafmtCheckAll; scalafmtSbtCheck'
+        run: sbt 'scalafmtCheckAll; scalafmtSbtCheck'
 
       - name: Check that workflows are up to date
-        run: sbt '++ ${{ matrix.scala }}; githubWorkflowCheck'
+        run: sbt githubWorkflowCheck
 
       - name: Build project
-        run: sbt '++ ${{ matrix.scala }}; testFull'
+        run: sbt testFull
 
   publish:
     name: Publish Artifacts
@@ -85,18 +85,3 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         run: sbt ci-release
-
-  build-success:
-    name: Build and Test Success
-    needs: [build]
-    if: always()
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        scala: [all]
-        java: [temurin@17]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Fail if the build matrix did not succeed
-        if: needs.build.result != 'success'
-        run: exit 1

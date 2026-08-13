@@ -25,19 +25,24 @@ val scalaVersions =
     scala3Version
   )
 
-def subproject(name: String) = {
-  val fullName = s"periodic-$name"
-  Project(
-    id = fullName,
-    base = file(fullName)
-  ).settings(
-    scalaVersion := scala213Version,
-    crossScalaVersions := scalaVersions,
-    libraryDependencies ++= Seq(
-      "org.scalameta" %% "munit" % Versions.Munit % Test,
-      "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
+// `projectMatrix` is a macro that takes the project's id and base directory
+// from the enclosing val, so it cannot be used inside a def. This is the
+// constructor it expands to, which lets the id, base directory and artifact
+// name all be derived from one string.
+//
+// A module supporting fewer versions than the rest of the build passes its own
+// list, e.g. subproject("ox", Seq(scala3Version)).
+def subproject(shortName: String, versions: Seq[String] = scalaVersions) = {
+  val fullName = s"periodic-$shortName"
+  ProjectMatrix(fullName, file(fullName), getClass.getClassLoader)
+    .settings(
+      name := fullName,
+      libraryDependencies ++= Seq(
+        "org.scalameta" %% "munit" % Versions.Munit % Test,
+        "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
+      )
     )
-  )
+    .jvmPlatform(scalaVersions = versions)
 }
 
 lazy val core = subproject("core")
@@ -62,16 +67,14 @@ lazy val pekkoStream = subproject("pekko-stream")
 
 lazy val root = project
   .in(file("."))
-  .aggregate(
-    core,
-    pekkoStream
-  )
+  .aggregate((core.projectRefs ++ pekkoStream.projectRefs) *)
   .settings(
     publish / skip := true,
+    // Keeps the root out of `+publishSigned`, which ci-release runs: it is not
+    // a matrix row, so its crossScalaVersions is sbt's own Scala version.
     crossScalaVersions := Nil
   )
 
-ThisBuild / crossScalaVersions := scalaVersions
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
 ThisBuild / githubWorkflowBuildPreamble := Seq(
   WorkflowStep.Sbt(
@@ -118,30 +121,11 @@ ThisBuild / githubWorkflowBuild := Seq(
   WorkflowStep.Sbt(List("testFull"), name = Some("Build project"))
 )
 
-// Mergify and branch protection match on check names, which for a matrix job
-// embed the Scala version. This job depends on the matrix as a whole, so its
-// check name is stable, and needs.build.result is only "success" when every
-// leg passed. always() makes it report a conclusion even when the matrix
-// fails, rather than being skipped.
-ThisBuild / githubWorkflowAddedJobs := Seq(
-  WorkflowJob(
-    id = "build-success",
-    name = "Build and Test Success",
-    steps = List(
-      WorkflowStep.Run(
-        List("exit 1"),
-        name = Some("Fail if the build matrix did not succeed"),
-        cond = Some("needs.build.result != 'success'")
-      )
-    ),
-    cond = Some("always()"),
-    needs = List("build"),
-    // sbt-github-actions always emits an os/scala/java matrix, and GitHub
-    // appends the matrix values to the check name. Empty dimensions produce a
-    // workflow GitHub rejects, so the scala dimension is a constant rather
-    // than a real version: this job builds nothing and never reads it, and it
-    // keeps the check name stable as crossScalaVersions changes.
-    scalas = List("all"),
-    javas = List(JavaSpec.temurin("17"))
-  )
-)
+// Every Scala version is a row of the project matrix, so one testFull builds
+// them all and there is nothing for `++` to switch. sbt-github-actions has no
+// notion of a project matrix: it derives the workflow's scala dimension from
+// crossScalaVersions and prefixes each sbt step with `++`. Both are overridden
+// here, leaving a single job. The dimension cannot be empty, because
+// sbt-github-actions always emits one and GitHub rejects an empty matrix.
+ThisBuild / githubWorkflowScalaVersions := Seq("all")
+ThisBuild / githubWorkflowBuildSbtStepPreamble := Nil
