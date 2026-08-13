@@ -77,7 +77,17 @@ ThisBuild / githubWorkflowBuildPreamble := Seq(
     name = Some("Check formatting with scalafmt")
   )
 )
+// One setting drives both the pull_request and push triggers. Left at the
+// default of "**", a branch in this repo with an open PR fires both and every
+// job runs twice. For pull_request this filters on the base branch, so "main"
+// still covers every PR; for push it means only main and the release tags.
+ThisBuild / githubWorkflowTargetBranches := Seq("main")
 ThisBuild / githubWorkflowTargetTags := Seq("v*")
+
+// The generated Clean workflow deletes build artifacts, and this build stopped
+// uploading any when githubWorkflowArtifactUpload was disabled. It is rendered
+// as a bare `on: push`, so it was also running on every branch.
+ThisBuild / githubWorkflowIncludeClean := false
 ThisBuild / githubWorkflowPublishTargetBranches :=
   Seq(RefPredicate.StartsWith(Ref.Tag("v")))
 
@@ -114,3 +124,31 @@ ThisBuild / githubWorkflowBuild := Seq(
 // sbt-github-actions always emits one and GitHub rejects an empty matrix.
 ThisBuild / githubWorkflowScalaVersions := Seq("all")
 ThisBuild / githubWorkflowBuildSbtStepPreamble := Nil
+
+// Mergify and branch protection match on check names, which for a matrix job
+// embed the Scala version. This job depends on the matrix as a whole, so its
+// check name is stable, and needs.build.result is only "success" when every
+// leg passed. always() makes it report a conclusion even when the matrix
+// fails, rather than being skipped.
+ThisBuild / githubWorkflowAddedJobs := Seq(
+  WorkflowJob(
+    id = "build-success",
+    name = "Build and Test Success",
+    steps = List(
+      WorkflowStep.Run(
+        List("exit 1"),
+        name = Some("Fail if the build matrix did not succeed"),
+        cond = Some("needs.build.result != 'success'")
+      )
+    ),
+    cond = Some("always()"),
+    needs = List("build"),
+    // sbt-github-actions always emits an os/scala/java matrix, and GitHub
+    // appends the matrix values to the check name. Empty dimensions produce a
+    // workflow GitHub rejects, so the scala dimension is a constant rather
+    // than a real version: this job builds nothing and never reads it, and it
+    // keeps the check name stable as crossScalaVersions changes.
+    scalas = List("all"),
+    javas = List(JavaSpec.temurin("17"))
+  )
+)
