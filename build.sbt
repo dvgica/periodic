@@ -25,30 +25,33 @@ val scalaVersions =
     scala3Version
   )
 
-val subprojectSettings = Seq(
-  libraryDependencies ++= Seq(
-    "org.scalameta" %% "munit" % Versions.Munit % Test,
-    "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
-  )
-)
+// `projectMatrix` is a macro that takes the project's id and base directory
+// from the enclosing val, so it cannot be used inside a def. This is the
+// constructor it expands to, which lets the id, base directory and artifact
+// name all be derived from one string.
+def subproject(shortName: String) = {
+  val fullName = s"periodic-$shortName"
+  ProjectMatrix(fullName, file(fullName), getClass.getClassLoader)
+    .settings(
+      name := fullName,
+      libraryDependencies ++= Seq(
+        "org.scalameta" %% "munit" % Versions.Munit % Test,
+        "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
+      )
+    )
+    .jvmPlatform(scalaVersions = scalaVersions)
+}
 
-lazy val core = (projectMatrix in file("periodic-core"))
-  .withId("periodic-core")
-  .settings(subprojectSettings)
+lazy val core = subproject("core")
   .settings(
-    name := "periodic-core",
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-api" % Versions.Slf4j
     )
   )
-  .jvmPlatform(scalaVersions = scalaVersions)
 
-lazy val pekkoStream = (projectMatrix in file("periodic-pekko-stream"))
-  .withId("periodic-pekko-stream")
+lazy val pekkoStream = subproject("pekko-stream")
   .dependsOn(core % "test->test;compile->compile")
-  .settings(subprojectSettings)
   .settings(
-    name := "periodic-pekko-stream",
     libraryDependencies ++= Seq(
       "org.apache.pekko" %% "pekko-stream" % Versions.Pekko
     ),
@@ -58,7 +61,6 @@ lazy val pekkoStream = (projectMatrix in file("periodic-pekko-stream"))
     // sbt's JVM.
     Test / fork := true
   )
-  .jvmPlatform(scalaVersions = scalaVersions)
 
 lazy val root = project
   .in(file("."))
