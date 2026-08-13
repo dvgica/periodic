@@ -25,31 +25,30 @@ val scalaVersions =
     scala3Version
   )
 
-def subproject(name: String) = {
-  val fullName = s"periodic-$name"
-  Project(
-    id = fullName,
-    base = file(fullName)
-  ).settings(
-    scalaVersion := scala213Version,
-    crossScalaVersions := scalaVersions,
-    libraryDependencies ++= Seq(
-      "org.scalameta" %% "munit" % Versions.Munit % Test,
-      "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
-    )
+val subprojectSettings = Seq(
+  libraryDependencies ++= Seq(
+    "org.scalameta" %% "munit" % Versions.Munit % Test,
+    "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
   )
-}
+)
 
-lazy val core = subproject("core")
+lazy val core = (projectMatrix in file("periodic-core"))
+  .withId("periodic-core")
+  .settings(subprojectSettings)
   .settings(
+    name := "periodic-core",
     libraryDependencies ++= Seq(
       "org.slf4j" % "slf4j-api" % Versions.Slf4j
     )
   )
+  .jvmPlatform(scalaVersions = scalaVersions)
 
-lazy val pekkoStream = subproject("pekko-stream")
+lazy val pekkoStream = (projectMatrix in file("periodic-pekko-stream"))
+  .withId("periodic-pekko-stream")
   .dependsOn(core % "test->test;compile->compile")
+  .settings(subprojectSettings)
   .settings(
+    name := "periodic-pekko-stream",
     libraryDependencies ++= Seq(
       "org.apache.pekko" %% "pekko-stream" % Versions.Pekko
     ),
@@ -59,19 +58,18 @@ lazy val pekkoStream = subproject("pekko-stream")
     // sbt's JVM.
     Test / fork := true
   )
+  .jvmPlatform(scalaVersions = scalaVersions)
 
 lazy val root = project
   .in(file("."))
-  .aggregate(
-    core,
-    pekkoStream
-  )
+  .aggregate((core.projectRefs ++ pekkoStream.projectRefs) *)
   .settings(
     publish / skip := true,
+    // Keeps the root out of `+publishSigned`, which ci-release runs: it is not
+    // a matrix row, so its crossScalaVersions is sbt's own Scala version.
     crossScalaVersions := Nil
   )
 
-ThisBuild / crossScalaVersions := scalaVersions
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
 ThisBuild / githubWorkflowBuildPreamble := Seq(
   WorkflowStep.Sbt(
@@ -107,3 +105,12 @@ ThisBuild / githubWorkflowArtifactUpload := false
 ThisBuild / githubWorkflowBuild := Seq(
   WorkflowStep.Sbt(List("testFull"), name = Some("Build project"))
 )
+
+// Every Scala version is a row of the project matrix, so one testFull builds
+// them all and there is nothing for `++` to switch. sbt-github-actions has no
+// notion of a project matrix: it derives the workflow's scala dimension from
+// crossScalaVersions and prefixes each sbt step with `++`. Both are overridden
+// here, leaving a single job. The dimension cannot be empty, because
+// sbt-github-actions always emits one and GitHub rejects an empty matrix.
+ThisBuild / githubWorkflowScalaVersions := Seq("all")
+ThisBuild / githubWorkflowBuildSbtStepPreamble := Nil
