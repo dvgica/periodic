@@ -29,7 +29,10 @@ val scalaVersions =
 // from the enclosing val, so it cannot be used inside a def. This is the
 // constructor it expands to, which lets the id, base directory and artifact
 // name all be derived from one string.
-def subproject(shortName: String) = {
+//
+// A module supporting fewer versions than the rest of the build passes its own
+// list, e.g. subproject("ox", Seq(scala3Version)).
+def subproject(shortName: String, versions: Seq[String] = scalaVersions) = {
   val fullName = s"periodic-$shortName"
   ProjectMatrix(fullName, file(fullName), getClass.getClassLoader)
     .settings(
@@ -39,7 +42,7 @@ def subproject(shortName: String) = {
         "org.slf4j" % "slf4j-simple" % Versions.Slf4j % Test
       )
     )
-    .jvmPlatform(scalaVersions = scalaVersions)
+    .jvmPlatform(scalaVersions = versions)
 }
 
 lazy val core = subproject("core")
